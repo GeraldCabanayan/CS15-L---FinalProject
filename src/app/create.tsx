@@ -1,20 +1,9 @@
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
-import {
-  Alert,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View, } from "react-native";
+import { AppNav } from "../components/AppNav";
 import { useCalTrack } from "../features/caltrack/store";
-import {
-  emptyNutrition,
-  sumNutrition,
-  type Ingredient,
-} from "../features/caltrack/types";
+import { emptyNutrition, sumNutrition, type Ingredient, type MealCategory, } from "../features/caltrack/types";
 
 const blank = (): Ingredient => ({
   id: `${Date.now()}-${Math.random()}`,
@@ -33,10 +22,18 @@ const fields: [keyof Ingredient, string][] = [
   ["sodium", "Sodium (mg)"],
 ];
 
+const categories: { value: MealCategory; label: string }[] = [
+  { value: "uncategorized", label: "Uncategorized" },
+  { value: "breakfast", label: "Breakfast" },
+  { value: "lunch", label: "Lunch" },
+  { value: "dinner", label: "Dinner" },
+];
+
 export default function CreateMeal() {
   const { addMeal } = useCalTrack();
   const [name, setName] = useState("");
   const [servings, setServings] = useState("1");
+  const [category, setCategory] = useState<MealCategory>("uncategorized");
   const [ingredients, setIngredients] = useState<Ingredient[]>([blank()]);
   const total = useMemo(() => sumNutrition(ingredients), [ingredients]);
 
@@ -69,6 +66,7 @@ export default function CreateMeal() {
       id: `${Date.now()}`,
       name: name.trim(),
       servings: Math.max(Number(servings) || 1, 1),
+      category,
       ingredients,
       createdAt: new Date().toISOString(),
     });
@@ -103,6 +101,21 @@ export default function CreateMeal() {
           keyboardType="number-pad"
           style={styles.input}
         />
+
+        <Text style={styles.label}>Meal category</Text>
+        <View style={styles.categoryList}>
+          {categories.map((item) => (
+            <Pressable
+              key={item.value}
+              onPress={() => setCategory(item.value)}
+              style={[styles.category, category === item.value && styles.categorySelected]}
+            >
+              <Text style={[styles.categoryText, category === item.value && styles.categoryTextSelected]}>
+                {item.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
 
         <View style={styles.sectionLine}>
           <Text style={styles.sectionTitle}>Ingredients</Text>
@@ -173,6 +186,7 @@ export default function CreateMeal() {
           <Text style={styles.saveText}>Save recipe</Text>
         </Pressable>
       </ScrollView>
+      <AppNav />
     </View>
   );
 }
@@ -195,6 +209,18 @@ const styles = StyleSheet.create({
     padding: 14,
     fontSize: 16,
   },
+  categoryList: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  category: {
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    backgroundColor: "#fff",
+  },
+  categorySelected: { backgroundColor: "#dff6df", borderColor: "#00c100" },
+  categoryText: { color: "#666", fontWeight: "700", fontSize: 12 },
+  categoryTextSelected: { color: "#008d00" },
   sectionLine: {
     flexDirection: "row",
     justifyContent: "space-between",

@@ -14,9 +14,12 @@ export type Ingredient = Nutrition & {
   amount: string;
 };
 
+export type MealCategory = "uncategorized" | "breakfast" | "lunch" | "dinner";
+
 export type Meal = {
   id: string;
   name: string;
+  category?: MealCategory;
   servings: number;
   ingredients: Ingredient[];
   createdAt: string;

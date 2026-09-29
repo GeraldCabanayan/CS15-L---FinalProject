@@ -2,7 +2,19 @@ import { Link } from "expo-router";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { AppNav } from "../components/AppNav";
 import { useCalTrack } from "../features/caltrack/store";
-import { perServing, sumNutrition } from "../features/caltrack/types";
+import {
+  perServing,
+  sumNutrition,
+  type Meal,
+  type MealCategory,
+} from "../features/caltrack/types";
+
+const categories: { value: MealCategory; label: string }[] = [
+  { value: "uncategorized", label: "Uncategorized" },
+  { value: "breakfast", label: "Breakfast" },
+  { value: "lunch", label: "Lunch" },
+  { value: "dinner", label: "Dinner" },
+];
 
 export default function Home() {
   const { meals, loggedMeals, goal } = useCalTrack();
@@ -31,8 +43,7 @@ export default function Home() {
               <Text style={styles.heroUnit}>/ {goal.calorieTarget} kcal</Text>
             </Text>
             <Text style={styles.heroHint}>
-              {Math.max(goal.calorieTarget - eaten.calories, 0).toFixed(0)} kcal
-              remaining
+              {Math.max(goal.calorieTarget - eaten.calories, 0).toFixed(0)} kcal remaining
             </Text>
           </View>
           <View style={styles.ring}>
@@ -54,36 +65,51 @@ export default function Home() {
           </Link>
         </View>
 
-        {logged.length === 0 ? (
-          <View style={styles.empty}>
-            <Text style={styles.emptyIcon}>＋</Text>
-            <Text style={styles.emptyTitle}>Nothing logged yet</Text>
-            <Text style={styles.emptyCopy}>
-              Add a saved recipe to start tracking your day.
-            </Text>
-            <Link href="/recipes" style={styles.button}>
-              Browse recipes
-            </Link>
-          </View>
-        ) : (
-          logged.map((meal) => (
-            <View key={meal.id} style={styles.mealCard}>
-              <Text style={styles.mealEmoji}>🥗</Text>
-              <View style={styles.mealInfo}>
-                <Text style={styles.mealName}>{meal.name}</Text>
-                <Text style={styles.mealMeta}>
-                  {Math.round(perServing(meal).calories)} kcal ·{" "}
-                  {meal.ingredients.length} ingredients
-                </Text>
-              </View>
-              <Text style={styles.check}>✓</Text>
-            </View>
-          ))
-        )}
+        <View style={styles.categoryList}>
+          {categories.map((category) => {
+            const categoryMeals = logged.filter(
+              (meal) => (meal.category ?? "uncategorized") === category.value,
+            );
 
-        
+            return (
+              <View key={category.value} style={styles.categorySection}>
+                <View style={styles.categoryHeader}>
+                  <Text style={styles.categoryTitle}>{category.label}</Text>
+                  <Text style={styles.categoryCount}>{categoryMeals.length}</Text>
+                </View>
+                {categoryMeals.length === 0 ? (
+                  <View style={styles.categoryEmpty}>
+                    <Text style={styles.emptyCopy}>No meals logged</Text>
+                    {category.value === "uncategorized" && (
+                      <Link href="/recipes" style={styles.categoryLink}>
+                        Browse recipes
+                      </Link>
+                    )}
+                  </View>
+                ) : (
+                  categoryMeals.map((meal) => <MealCard key={meal.id} meal={meal} />)
+                )}
+              </View>
+            );
+          })}
+        </View>
       </ScrollView>
       <AppNav />
+    </View>
+  );
+}
+
+function MealCard({ meal }: { meal: Meal }) {
+  return (
+    <View style={styles.mealCard}>
+      <Text style={styles.mealEmoji}>🥗</Text>
+      <View style={styles.mealInfo}>
+        <Text style={styles.mealName}>{meal.name}</Text>
+        <Text style={styles.mealMeta}>
+          {Math.round(perServing(meal).calories)} kcal · {meal.ingredients.length} ingredients
+        </Text>
+      </View>
+      <Text style={styles.check}>✓</Text>
     </View>
   );
 }
@@ -109,121 +135,38 @@ function Macro({
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: "#fafafa" },
   content: { padding: 22, paddingBottom: 30 },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 24,
-  },
-  eyebrow: {
-    color: "#00a900",
-    fontSize: 11,
-    fontWeight: "800",
-    letterSpacing: 1.5,
-  },
-  title: {
-    color: "#101010",
-    fontSize: 29,
-    fontWeight: "800",
-    marginTop: 4,
-  },
-  avatar: {
-    backgroundColor: "#dff6df",
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 24 },
+  eyebrow: { color: "#00a900", fontSize: 11, fontWeight: "800", letterSpacing: 1.5 },
+  title: { color: "#101010", fontSize: 29, fontWeight: "800", marginTop: 4 },
+  avatar: { backgroundColor: "#dff6df", width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
   avatarText: { color: "#008900", fontWeight: "800" },
-  hero: {
-    backgroundColor: "#111",
-    borderRadius: 24,
-    padding: 22,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  heroLabel: {
-    color: "#a9a9a9",
-    fontSize: 11,
-    fontWeight: "800",
-    letterSpacing: 1,
-  },
-  heroValue: {
-    color: "#fff",
-    fontSize: 29,
-    fontWeight: "800",
-    marginTop: 10,
-  },
+  hero: { backgroundColor: "#111", borderRadius: 24, padding: 22, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  heroLabel: { color: "#a9a9a9", fontSize: 11, fontWeight: "800", letterSpacing: 1 },
+  heroValue: { color: "#fff", fontSize: 29, fontWeight: "800", marginTop: 10 },
   heroUnit: { color: "#a9a9a9", fontSize: 14, fontWeight: "500" },
   heroHint: { color: "#ffb23d", marginTop: 8, fontSize: 12 },
-  ring: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    borderWidth: 7,
-    borderColor: "#00c100",
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  ring: { width: 76, height: 76, borderRadius: 38, borderWidth: 7, borderColor: "#00c100", alignItems: "center", justifyContent: "center" },
   ringText: { color: "#fff", fontSize: 16, fontWeight: "800" },
-  sectionTitle: {
-    color: "#171717",
-    fontSize: 18,
-    fontWeight: "800",
-    marginTop: 26,
-    marginBottom: 13,
-  },
+  sectionTitle: { color: "#171717", fontSize: 18, fontWeight: "800", marginTop: 26, marginBottom: 13 },
   macroRow: { flexDirection: "row", gap: 8 },
   macro: { backgroundColor: "#fff", borderRadius: 16, padding: 14, flex: 1 },
   dot: { width: 8, height: 8, borderRadius: 4, marginBottom: 9 },
   macroLabel: { color: "#777", fontSize: 12 },
-  macroValue: {
-    color: "#171717",
-    fontSize: 18,
-    fontWeight: "800",
-    marginTop: 5,
-  },
-  sectionLine: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
+  macroValue: { color: "#171717", fontSize: 18, fontWeight: "800", marginTop: 5 },
+  sectionLine: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   link: { color: "#00a900", fontWeight: "700" },
-  empty: {
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    padding: 22,
-    alignItems: "center",
-  },
-  emptyIcon: { color: "#00c100", fontSize: 32 },
-  emptyTitle: { fontSize: 16, fontWeight: "800", marginTop: 5 },
-  emptyCopy: { color: "#777", textAlign: "center", marginTop: 5 },
-  button: {
-    backgroundColor: "#00c100",
-    color: "#fff",
-    paddingHorizontal: 18,
-    paddingVertical: 11,
-    borderRadius: 10,
-    fontWeight: "800",
-    marginTop: 15,
-  },
-  mealCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    borderRadius: 17,
-    padding: 14,
-    marginBottom: 9,
-  },
-  mealEmoji: { fontSize: 27, marginRight: 12 },
+  categoryList: { gap: 12 },
+  categorySection: { backgroundColor: "#f1f1f1", borderRadius: 18, padding: 10 },
+  categoryHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 4, marginBottom: 10 },
+  categoryTitle: { fontSize: 15, fontWeight: "800", color: "#171717" },
+  categoryCount: { minWidth: 22, textAlign: "center", color: "#008d00", backgroundColor: "#dff6df", borderRadius: 11, paddingVertical: 3, fontSize: 11, fontWeight: "800" },
+  categoryEmpty: { backgroundColor: "#fff", borderRadius: 14, padding: 14, alignItems: "center" },
+  emptyCopy: { color: "#777", fontSize: 12, textAlign: "center" },
+  categoryLink: { color: "#00a900", fontSize: 12, fontWeight: "800", marginTop: 9 },
+  mealCard: { flexDirection: "row", alignItems: "center", backgroundColor: "#fff", borderRadius: 14, padding: 13, marginBottom: 8 },
+  mealEmoji: { fontSize: 25, marginRight: 11 },
   mealInfo: { flex: 1 },
   mealName: { fontWeight: "800", fontSize: 15 },
   mealMeta: { color: "#777", marginTop: 4, fontSize: 12 },
   check: { color: "#00c100", fontSize: 22, fontWeight: "800" },
-  actions: { flexDirection: "row", gap: 10 },
-  action: { backgroundColor: "#fff", borderRadius: 16, padding: 15, flex: 1 },
-  actionIcon: { color: "#00a900", fontSize: 21 },
-  actionText: { color: "#333", fontWeight: "700", marginTop: 8 },
 });
