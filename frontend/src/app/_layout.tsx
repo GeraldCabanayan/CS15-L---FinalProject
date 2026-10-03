@@ -1,6 +1,6 @@
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { CalTrackProvider } from "../features/caltrack/store";
+import { CalTrackProvider } from "../caltrack/store";
 
 export default function RootLayout() {
   return (

@@ -2,8 +2,8 @@ import { router } from "expo-router";
 import { useMemo, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View, } from "react-native";
 import { AppNav } from "../components/AppNav";
-import { useCalTrack } from "../features/caltrack/store";
-import { emptyNutrition, sumNutrition, type Ingredient, type MealCategory, } from "../features/caltrack/types";
+import { useCalTrack } from "../caltrack/store";
+import { emptyNutrition, sumNutrition, type Ingredient, type MealCategory, } from "../caltrack/types";
 
 const blank = (): Ingredient => ({
   id: `${Date.now()}-${Math.random()}`,

@@ -6,6 +6,7 @@ const tabs = [
   { label: "Recipes", icon: "▣", path: "/recipes" },
   { label: "Create", icon: "+", path: "/create" },
   { label: "Goals", icon: "◎", path: "/goals" },
+  { label: "Profile", icon: "( ͡° ͜ʖ ͡°)", path: "/profile"}
 ];
 
 export function AppNav() {

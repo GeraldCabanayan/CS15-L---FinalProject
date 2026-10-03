@@ -7,8 +7,8 @@ import {
   View,
 } from "react-native";
 import { AppNav } from "../components/AppNav";
-import { useCalTrack } from "../features/caltrack/store";
-import { perServing } from "../features/caltrack/types";
+import { useCalTrack } from "../caltrack/store";
+import { perServing } from "../caltrack/types";
 
 export default function Recipes() {
   const { meals, logMeal, loggedMeals } = useCalTrack();

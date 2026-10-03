@@ -1,9 +1,5 @@
 import {
-  createContext,
-  useContext,
-  useMemo,
-  useState,
-  type ReactNode,
+  createContext, useContext, useMemo, useState, type ReactNode,
 } from "react";
 import type { Meal, UserGoal } from "./types";
 

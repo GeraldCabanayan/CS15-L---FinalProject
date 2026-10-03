@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { AppNav } from "../components/AppNav";
-import { useCalTrack } from "../features/caltrack/store";
+import { useCalTrack } from "../caltrack/store";
 
 export default function Goals() {
   const { goal, updateGoal } = useCalTrack();
