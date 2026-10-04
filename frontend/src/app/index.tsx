@@ -16,11 +16,15 @@ const categories: { value: MealCategory; label: string }[] = [
 export default function Home() {
   const handlePress = () => { router.push('/create');}
   const { meals, loggedMeals, goal } = useCalTrack();
-  const logged = meals.filter((meal) => loggedMeals.includes(meal.id));
-  const eaten = sumNutrition(logged.map(perServing));
+  const logged = loggedMeals.flatMap((entry) => {
+    const meal = meals.find((item) => item.id === entry.mealId);
+    return meal ? [{ meal, category: entry.category }] : [];
+  });
+  const eaten = sumNutrition(logged.map(({ meal }) => perServing(meal)));
   const progress = Math.min(eaten.calories / goal.calorieTarget, 1);
 
   return (
+    
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.header}>
@@ -62,19 +66,12 @@ export default function Home() {
             View all
           </Link>
         </View>
-        
-           <View style={styles.container}>
-              <Pressable onPress={handlePress}
-                  style={ ({ pressed }) => [styles.button, pressed && styles.buttonPressed] }>
-                    <Text style={{ color: 'white', fontWeight: 600 }}>Create Meal</Text>
-              </Pressable>
-           </View>
 
 
         <View style={styles.categoryList}>
           {categories.map((category) => {
             const categoryMeals = logged.filter(
-              (meal) => (meal.category ?? "uncategorized") === category.value,
+              (entry) => entry.category === category.value,
             );
             
           //code for meal category
@@ -95,7 +92,7 @@ export default function Home() {
                   </View>
                   
                 ) : (
-                  categoryMeals.map((meal) => <MealCard key={meal.id} meal={meal} />)
+                  categoryMeals.map(({ meal }) => <MealCard key={meal.id} meal={meal} />)
                 )}
                 
               </View>
@@ -105,6 +102,8 @@ export default function Home() {
       </ScrollView>
       <AppNav />
     </View>
+
+    
   );
 }
 
@@ -344,7 +343,9 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    alignItems: 'center'
+    alignItems: 'center',
+    position: 'relative',
+    zIndex: 10,
   },
 
   button: {
@@ -358,7 +359,9 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
-    top: 515,
+    position: "relative",
+    zIndex: 11,
+    top: 855
   },
 
   buttonPressed: {

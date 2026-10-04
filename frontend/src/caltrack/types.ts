@@ -25,6 +25,11 @@ export type Meal = {
   createdAt: string;
 };
 
+export type LoggedMeal = {
+  mealId: string;
+  category: MealCategory;
+};
+
 export type UserGoal = {
   calorieTarget: number;
   goal: "lose" | "maintain" | "gain";

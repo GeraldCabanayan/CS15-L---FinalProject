@@ -1,4 +1,5 @@
 import { Link } from "expo-router";
+import { useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -8,10 +9,17 @@ import {
 } from "react-native";
 import { AppNav } from "../components/AppNav";
 import { useCalTrack } from "../caltrack/store";
-import { perServing } from "../caltrack/types";
+import { perServing, type MealCategory } from "../caltrack/types";
+
+const logCategories: { value: MealCategory; label: string }[] = [
+  { value: "breakfast", label: "Breakfast" },
+  { value: "lunch", label: "Lunch" },
+  { value: "dinner", label: "Dinner" },
+];
 
 export default function Recipes() {
   const { meals, logMeal, loggedMeals } = useCalTrack();
+  const [mealToLog, setMealToLog] = useState<string | null>(null);
 
   return (
     <View style={styles.screen}>
@@ -27,7 +35,8 @@ export default function Recipes() {
 
         {meals.map((meal) => {
           const nutrition = perServing(meal);
-          const logged = loggedMeals.includes(meal.id);
+          const logged = loggedMeals.some((item) => item.mealId === meal.id);
+          const choosingCategory = mealToLog === meal.id;
 
           return (
             <View key={meal.id} style={styles.card}>
@@ -59,12 +68,31 @@ export default function Recipes() {
 
               <Pressable
                 style={[styles.log, logged && styles.logged]}
-                onPress={() => logMeal(meal.id)}
+                onPress={() => !logged && setMealToLog(meal.id)}
               >
                 <Text style={[styles.logText, logged && styles.loggedText]}>
-                  {logged ? "Logged today ✓" : "Add to today"}
+                  {logged ? "✓" : "Add to today"}
                 </Text>
               </Pressable>
+              {choosingCategory && (
+                <View style={styles.logPicker}>
+                  <Text style={styles.logPickerLabel}>Add to which meal?</Text>
+                  <View style={styles.logCategoryList}>
+                    {logCategories.map((category) => (
+                      <Pressable
+                        key={category.value}
+                        style={styles.logCategory}
+                        onPress={() => {
+                          logMeal(meal.id, category.value);
+                          setMealToLog(null);
+                        }}
+                      >
+                        <Text style={styles.logCategoryText}>{category.label}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
+              )}
             </View>
           );
         })}
@@ -135,4 +163,22 @@ const styles = StyleSheet.create({
   logged: { backgroundColor: "#e4f8e4" },
   logText: { color: "#fff", fontWeight: "800" },
   loggedText: { color: "#008d00" },
+  logPicker: {
+    backgroundColor: "#f4faf4",
+    borderRadius: 11,
+    marginTop: 10,
+    padding: 12,
+  },
+  logPickerLabel: { color: "#555", fontSize: 12, fontWeight: "700" },
+  logCategoryList: { flexDirection: "row", gap: 8, marginTop: 9 },
+  logCategory: {
+    backgroundColor: "#fff",
+    borderColor: "#00c100",
+    borderRadius: 8,
+    borderWidth: 1,
+    flex: 1,
+    paddingVertical: 9,
+    alignItems: "center",
+  },
+  logCategoryText: { color: "#008d00", fontSize: 12, fontWeight: "800" },
 });

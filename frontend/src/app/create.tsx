@@ -5,6 +5,8 @@ import { AppNav } from "../components/AppNav";
 import { useCalTrack } from "../caltrack/store";
 import { emptyNutrition, sumNutrition, type Ingredient, type MealCategory, } from "../caltrack/types";
 
+
+
 const blank = (): Ingredient => ({
   id: `${Date.now()}-${Math.random()}`,
   name: "",
@@ -88,6 +90,7 @@ export default function CreateMeal() {
         <Text style={styles.label}>Meal name</Text>
         <TextInput
           placeholder="e.g. Sunday pasta"
+          placeholderTextColor="rgba(2, 2, 2, 0.5)"
           value={name}
           onChangeText={setName}
           style={styles.input}
@@ -96,6 +99,7 @@ export default function CreateMeal() {
         <Text style={styles.label}>Servings</Text>
         <TextInput
           placeholder="1"
+          placeholderTextColor="rgba(2, 2, 2, 0.5)"
           value={servings}
           onChangeText={setServings}
           keyboardType="number-pad"
