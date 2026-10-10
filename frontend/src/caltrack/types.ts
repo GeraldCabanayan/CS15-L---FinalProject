@@ -26,6 +26,8 @@ export type Meal = {
 };
 
 export type LoggedMeal = {
+  id: number;
+  date: string;
   mealId: string;
   category: MealCategory;
 };

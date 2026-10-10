@@ -1,9 +1,9 @@
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View, } from "react-native";
 import { AppNav } from "../components/AppNav";
-import { useCalTrack } from "../caltrack/store";
-import { emptyNutrition, sumNutrition, type Ingredient, type MealCategory, } from "../caltrack/types";
+import { errorMessage, useCalTrack } from "../caltrack/store";
+import { emptyNutrition, sumNutrition, type Ingredient, type Meal, type MealCategory, } from "../caltrack/types";
 
 
 
@@ -32,11 +32,26 @@ const categories: { value: MealCategory; label: string }[] = [
 ];
 
 export default function CreateMeal() {
-  const { addMeal } = useCalTrack();
-  const [name, setName] = useState("");
-  const [servings, setServings] = useState("1");
-  const [category, setCategory] = useState<MealCategory>("uncategorized");
-  const [ingredients, setIngredients] = useState<Ingredient[]>([blank()]);
+  const { id } = useLocalSearchParams<{ id?: string }>();
+  const { addMeal, updateMeal, meals, isSaving } = useCalTrack();
+  const existing = meals.find((meal) => meal.id === id);
+  // Keying the form by route ID keeps create and edit drafts separate.
+  return <MealForm key={id ?? "new"} existing={existing} editing={!!id}
+    addMeal={addMeal} updateMeal={updateMeal} isSaving={isSaving} />;
+}
+
+function MealForm({ existing, editing, addMeal, updateMeal, isSaving }: {
+  existing?: Meal;
+  editing: boolean;
+  addMeal: (meal: Meal) => Promise<void>;
+  updateMeal: (meal: Meal) => Promise<void>;
+  isSaving: boolean;
+}) {
+  const [name, setName] = useState(existing?.name ?? "");
+  const [servings, setServings] = useState(String(existing?.servings ?? 1));
+  const [category, setCategory] = useState<MealCategory>(existing?.category ?? "uncategorized");
+  const [ingredients, setIngredients] = useState<Ingredient[]>(existing?.ingredients ?? [blank()]);
+  const [saving, setSaving] = useState(false);
   const total = useMemo(() => sumNutrition(ingredients), [ingredients]);
 
   const update = (id: string, key: keyof Ingredient, value: string) => {
@@ -49,13 +64,18 @@ export default function CreateMeal() {
         return {
           ...item,
           [key]:
-            key === "name" || key === "amount" ? value : Number(value) || 0,
+            key === "name" || key === "amount" ? value : Number(value),
         };
       }),
     );
   };
 
-  const save = () => {
+  const save = async () => {
+    if (saving || isSaving) return;
+    if (editing && !existing) {
+      Alert.alert("Recipe unavailable", "This recipe no longer exists.");
+      return;
+    }
     if (!name.trim() || ingredients.some((item) => !item.name.trim())) {
       Alert.alert(
         "Almost there",
@@ -64,15 +84,22 @@ export default function CreateMeal() {
       return;
     }
 
-    addMeal({
-      id: `${Date.now()}`,
-      name: name.trim(),
-      servings: Math.max(Number(servings) || 1, 1),
-      category,
-      ingredients,
-      createdAt: new Date().toISOString(),
-    });
-    router.replace("/recipes");
+    setSaving(true);
+    try {
+      await (editing ? updateMeal : addMeal)({
+        id: existing?.id ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        name: name.trim(),
+        servings: Number(servings),
+        category,
+        ingredients,
+        createdAt: existing?.createdAt ?? new Date().toISOString(),
+      });
+      router.replace("/recipes");
+    } catch (error) {
+      Alert.alert("Could not save recipe", errorMessage(error));
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -82,7 +109,7 @@ export default function CreateMeal() {
           <Text style={styles.back}>‹ Back</Text>
         </Pressable>
 
-        <Text style={styles.title}>Create a meal</Text>
+        <Text style={styles.title}>{editing ? "Edit a meal" : "Create a meal"}</Text>
         <Text style={styles.subtitle}>
           Build a recipe and know exactly what is on your plate.
         </Text>
@@ -144,6 +171,12 @@ export default function CreateMeal() {
               />
             </View>
 
+            {ingredients.length > 1 && (
+              <Pressable onPress={() => setIngredients((items) => items.filter((ingredient) => ingredient.id !== item.id))}>
+                <Text style={styles.addText}>Remove ingredient</Text>
+              </Pressable>
+            )}
+
             <View style={styles.nutritionGrid}>
               {fields.map(([key, label]) => (
                 <View style={styles.field} key={key}>
@@ -186,8 +219,8 @@ export default function CreateMeal() {
           </View>
         </View>
 
-        <Pressable style={styles.save} onPress={save}>
-          <Text style={styles.saveText}>Save recipe</Text>
+        <Pressable style={styles.save} disabled={saving || isSaving} onPress={save}>
+          <Text style={styles.saveText}>{saving ? "Saving…" : "Save recipe"}</Text>
         </Pressable>
       </ScrollView>
       <AppNav />
