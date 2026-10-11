@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View, } from "react-native";
 import { AppNav } from "../components/AppNav";
 import { useCalTrack } from "../caltrack/store";
-import { emptyNutrition, sumNutrition, type Ingredient, type MealCategory, } from "../caltrack/types";
+import { emptyNutrition, sumNutrition, type Ingredient, type Nutrition, } from "../caltrack/types";
 
 
 
@@ -14,7 +14,7 @@ const blank = (): Ingredient => ({
   ...emptyNutrition,
 });
 
-const fields: [keyof Ingredient, string][] = [
+const fields: [keyof Nutrition, string][] = [
   ["calories", "Calories"],
   ["protein", "Protein (g)"],
   ["carbs", "Carbs (g)"],
@@ -24,22 +24,17 @@ const fields: [keyof Ingredient, string][] = [
   ["sodium", "Sodium (mg)"],
 ];
 
-const categories: { value: MealCategory; label: string }[] = [
-  { value: "uncategorized", label: "Uncategorized" },
-  { value: "breakfast", label: "Breakfast" },
-  { value: "lunch", label: "Lunch" },
-  { value: "dinner", label: "Dinner" },
-];
 
 export default function CreateMeal() {
   const { addMeal } = useCalTrack();
   const [name, setName] = useState("");
   const [servings, setServings] = useState("1");
-  const [category, setCategory] = useState<MealCategory>("uncategorized");
+  
   const [ingredients, setIngredients] = useState<Ingredient[]>([blank()]);
+  const [nutritionInputs, setNutritionInputs] = useState<Record<string, string>>({});
   const total = useMemo(() => sumNutrition(ingredients), [ingredients]);
 
-  const update = (id: string, key: keyof Ingredient, value: string) => {
+  const updateText = (id: string, key: "name" | "amount", value: string) => {
     setIngredients((items) =>
       items.map((item) => {
         if (item.id !== id) {
@@ -48,10 +43,27 @@ export default function CreateMeal() {
 
         return {
           ...item,
-          [key]:
-            key === "name" || key === "amount" ? value : Number(value) || 0,
+          [key]: value,
         };
       }),
+    );
+  };
+
+  const updateNutrition = (id: string, key: keyof Nutrition, value: string) => {
+    // Keep the raw text so values such as "0." remain editable as decimals.
+    if (!/^\d*(?:[.,]\d*)?$/.test(value)) {
+      return;
+    }
+
+    const inputKey = `${id}-${key}`;
+    const parsed = Number.parseFloat(value.replace(",", "."));
+    setNutritionInputs((inputs) => ({ ...inputs, [inputKey]: value }));
+    setIngredients((items) =>
+      items.map((item) =>
+        item.id === id
+          ? { ...item, [key]: Number.isFinite(parsed) ? parsed : 0 }
+          : item,
+      ),
     );
   };
 
@@ -68,7 +80,6 @@ export default function CreateMeal() {
       id: `${Date.now()}`,
       name: name.trim(),
       servings: Math.max(Number(servings) || 1, 1),
-      category,
       ingredients,
       createdAt: new Date().toISOString(),
     });
@@ -102,24 +113,10 @@ export default function CreateMeal() {
           placeholderTextColor="rgba(2, 2, 2, 0.5)"
           value={servings}
           onChangeText={setServings}
-          keyboardType="number-pad"
+          keyboardType="decimal-pad"
           style={styles.input}
         />
 
-        <Text style={styles.label}>Meal category</Text>
-        <View style={styles.categoryList}>
-          {categories.map((item) => (
-            <Pressable
-              key={item.value}
-              onPress={() => setCategory(item.value)}
-              style={[styles.category, category === item.value && styles.categorySelected]}
-            >
-              <Text style={[styles.categoryText, category === item.value && styles.categoryTextSelected]}>
-                {item.label}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
 
         <View style={styles.sectionLine}>
           <Text style={styles.sectionTitle}>Ingredients</Text>
@@ -133,13 +130,13 @@ export default function CreateMeal() {
               <TextInput
                 placeholder="Ingredient name"
                 value={item.name}
-                onChangeText={(value) => update(item.id, "name", value)}
+                onChangeText={(value) => updateText(item.id, "name", value)}
                 style={styles.nameInput}
               />
               <TextInput
                 placeholder="Amount"
                 value={item.amount}
-                onChangeText={(value) => update(item.id, "amount", value)}
+                onChangeText={(value) => updateText(item.id, "amount", value)}
                 style={styles.amountInput}
               />
             </View>
@@ -149,8 +146,8 @@ export default function CreateMeal() {
                 <View style={styles.field} key={key}>
                   <Text style={styles.fieldLabel}>{label}</Text>
                   <TextInput
-                    value={String(item[key])}
-                    onChangeText={(value) => update(item.id, key, value)}
+                    value={nutritionInputs[`${item.id}-${key}`] ?? String(item[key])}
+                    onChangeText={(value) => updateNutrition(item.id, key, value)}
                     keyboardType="decimal-pad"
                     style={styles.smallInput}
                   />
@@ -213,27 +210,24 @@ const styles = StyleSheet.create({
     padding: 14,
     fontSize: 16,
   },
-  categoryList: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  category: {
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    backgroundColor: "#fff",
-  },
-  categorySelected: { backgroundColor: "#dff6df", borderColor: "#00c100" },
-  categoryText: { color: "#666", fontWeight: "700", fontSize: 12 },
-  categoryTextSelected: { color: "#008d00" },
+
   sectionLine: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: 28,
-    marginBottom: 10,
+    flexDirection: "column",
+    justifyContent: "flex-start",
+    alignItems: "flex-start",
+    marginTop: 60,
+    marginBottom: 14,
   },
-  sectionTitle: { fontSize: 19, fontWeight: "800" },
-  total: { color: "#00a900", fontWeight: "800" },
+
+  sectionTitle: {
+     fontSize: 19,
+     fontWeight: "800" 
+    },
+
+  total: {
+     color: "#00a900",
+     fontWeight: "800" 
+    },
   ingredient: {
     backgroundColor: "#fff",
     borderRadius: 17,
