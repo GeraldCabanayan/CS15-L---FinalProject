@@ -1,9 +1,11 @@
-import { router } from "expo-router";
+
+import { router, useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View, } from "react-native";
 import { AppNav } from "../components/AppNav";
-import { useCalTrack } from "../caltrack/store";
-import { emptyNutrition, sumNutrition, type Ingredient, type Nutrition, } from "../caltrack/types";
+import { errorMessage, useCalTrack } from "../caltrack/store";
+import { emptyNutrition, sumNutrition, type Ingredient, type Nutrition, type Meal } from "../caltrack/types";
+
 
 
 
@@ -14,7 +16,7 @@ const blank = (): Ingredient => ({
   ...emptyNutrition,
 });
 
-const fields: [keyof Nutrition, string][] = [
+const fields: [keyof Ingredient, string][] = [
   ["calories", "Calories"],
   ["protein", "Protein (g)"],
   ["carbs", "Carbs (g)"],
@@ -26,15 +28,29 @@ const fields: [keyof Nutrition, string][] = [
 
 
 export default function CreateMeal() {
-  const { addMeal } = useCalTrack();
-  const [name, setName] = useState("");
-  const [servings, setServings] = useState("1");
+  const { id } = useLocalSearchParams<{ id?: string }>();
+  const { addMeal, updateMeal, meals, isSaving } = useCalTrack();
+  const existing = meals.find((meal) => meal.id === id);
+  // Keying the form by route ID keeps create and edit drafts separate.
+  return <MealForm key={id ?? "new"} existing={existing} editing={!!id}
+    addMeal={addMeal} updateMeal={updateMeal} isSaving={isSaving} />;
+}
+
+function MealForm({ existing, editing, addMeal, updateMeal, isSaving }: {
+  existing?: Meal;
+  editing: boolean;
+  addMeal: (meal: Meal) => Promise<void>;
+  updateMeal: (meal: Meal) => Promise<void>;
+  isSaving: boolean;
+}) {
+  const [name, setName] = useState(existing?.name ?? "");
+  const [servings, setServings] = useState(String(existing?.servings ?? 1));
   
-  const [ingredients, setIngredients] = useState<Ingredient[]>([blank()]);
-  const [nutritionInputs, setNutritionInputs] = useState<Record<string, string>>({});
+  const [ingredients, setIngredients] = useState<Ingredient[]>(existing?.ingredients ?? [blank()]);
+  const [saving, setSaving] = useState(false);
   const total = useMemo(() => sumNutrition(ingredients), [ingredients]);
 
-  const updateText = (id: string, key: "name" | "amount", value: string) => {
+  const update = (id: string, key: keyof Ingredient, value: string) => {
     setIngredients((items) =>
       items.map((item) => {
         if (item.id !== id) {
@@ -43,31 +59,19 @@ export default function CreateMeal() {
 
         return {
           ...item,
-          [key]: value,
+          [key]:
+            key === "name" || key === "amount" ? value : Number(value),
         };
       }),
     );
   };
 
-  const updateNutrition = (id: string, key: keyof Nutrition, value: string) => {
-    // Keep the raw text so values such as "0." remain editable as decimals.
-    if (!/^\d*(?:[.,]\d*)?$/.test(value)) {
+  const save = async () => {
+    if (saving || isSaving) return;
+    if (editing && !existing) {
+      Alert.alert("Recipe unavailable", "This recipe no longer exists.");
       return;
     }
-
-    const inputKey = `${id}-${key}`;
-    const parsed = Number.parseFloat(value.replace(",", "."));
-    setNutritionInputs((inputs) => ({ ...inputs, [inputKey]: value }));
-    setIngredients((items) =>
-      items.map((item) =>
-        item.id === id
-          ? { ...item, [key]: Number.isFinite(parsed) ? parsed : 0 }
-          : item,
-      ),
-    );
-  };
-
-  const save = () => {
     if (!name.trim() || ingredients.some((item) => !item.name.trim())) {
       Alert.alert(
         "Almost there",
@@ -76,14 +80,21 @@ export default function CreateMeal() {
       return;
     }
 
-    addMeal({
-      id: `${Date.now()}`,
-      name: name.trim(),
-      servings: Math.max(Number(servings) || 1, 1),
-      ingredients,
-      createdAt: new Date().toISOString(),
-    });
-    router.replace("/recipes");
+    setSaving(true);
+    try {
+      await (editing ? updateMeal : addMeal)({
+        id: existing?.id ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        name: name.trim(),
+        servings: Number(servings),
+        ingredients,
+        createdAt: existing?.createdAt ?? new Date().toISOString(),
+      });
+      router.replace("/recipes");
+    } catch (error) {
+      Alert.alert("Could not save recipe", errorMessage(error));
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -93,7 +104,7 @@ export default function CreateMeal() {
           <Text style={styles.back}>‹ Back</Text>
         </Pressable>
 
-        <Text style={styles.title}>Create a meal</Text>
+        <Text style={styles.title}>{editing ? "Edit a meal" : "Create a meal"}</Text>
         <Text style={styles.subtitle}>
           Build a recipe and know exactly what is on your plate.
         </Text>
@@ -113,10 +124,11 @@ export default function CreateMeal() {
           placeholderTextColor="rgba(2, 2, 2, 0.5)"
           value={servings}
           onChangeText={setServings}
-          keyboardType="decimal-pad"
+          keyboardType="number-pad"
           style={styles.input}
         />
 
+      
 
         <View style={styles.sectionLine}>
           <Text style={styles.sectionTitle}>Ingredients</Text>
@@ -130,24 +142,30 @@ export default function CreateMeal() {
               <TextInput
                 placeholder="Ingredient name"
                 value={item.name}
-                onChangeText={(value) => updateText(item.id, "name", value)}
+                onChangeText={(value) => update(item.id, "name", value)}
                 style={styles.nameInput}
               />
               <TextInput
                 placeholder="Amount"
                 value={item.amount}
-                onChangeText={(value) => updateText(item.id, "amount", value)}
+                onChangeText={(value) => update(item.id, "amount", value)}
                 style={styles.amountInput}
               />
             </View>
+
+            {ingredients.length > 1 && (
+              <Pressable onPress={() => setIngredients((items) => items.filter((ingredient) => ingredient.id !== item.id))}>
+                <Text style={styles.addText}>Remove ingredient</Text>
+              </Pressable>
+            )}
 
             <View style={styles.nutritionGrid}>
               {fields.map(([key, label]) => (
                 <View style={styles.field} key={key}>
                   <Text style={styles.fieldLabel}>{label}</Text>
                   <TextInput
-                    value={nutritionInputs[`${item.id}-${key}`] ?? String(item[key])}
-                    onChangeText={(value) => updateNutrition(item.id, key, value)}
+                    value={String(item[key])}
+                    onChangeText={(value) => update(item.id, key, value)}
                     keyboardType="decimal-pad"
                     style={styles.smallInput}
                   />
@@ -183,8 +201,8 @@ export default function CreateMeal() {
           </View>
         </View>
 
-        <Pressable style={styles.save} onPress={save}>
-          <Text style={styles.saveText}>Save recipe</Text>
+        <Pressable style={styles.save} disabled={saving || isSaving} onPress={save}>
+          <Text style={styles.saveText}>{saving ? "Saving…" : "Save recipe"}</Text>
         </Pressable>
       </ScrollView>
       <AppNav />
@@ -210,24 +228,27 @@ const styles = StyleSheet.create({
     padding: 14,
     fontSize: 16,
   },
-
-  sectionLine: {
-    flexDirection: "column",
-    justifyContent: "flex-start",
-    alignItems: "flex-start",
-    marginTop: 60,
-    marginBottom: 14,
+  categoryList: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  category: {
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    backgroundColor: "#fff",
   },
-
-  sectionTitle: {
-     fontSize: 19,
-     fontWeight: "800" 
-    },
-
-  total: {
-     color: "#00a900",
-     fontWeight: "800" 
-    },
+  categorySelected: { backgroundColor: "#dff6df", borderColor: "#00c100" },
+  categoryText: { color: "#666", fontWeight: "700", fontSize: 12 },
+  categoryTextSelected: { color: "#008d00" },
+  sectionLine: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 28,
+    marginBottom: 10,
+  },
+  sectionTitle: { fontSize: 19, fontWeight: "800" },
+  total: { color: "#00a900", fontWeight: "800" },
   ingredient: {
     backgroundColor: "#fff",
     borderRadius: 17,

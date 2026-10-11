@@ -1,9 +1,10 @@
-import { Link, router } from "expo-router";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Link } from "expo-router";
+import { useState } from "react";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { AppNav } from "../components/AppNav";
-import { useCalTrack } from "../caltrack/store";
+import { errorMessage, useCalTrack } from "../caltrack/store";
 import {
-  perServing, sumNutrition, type Meal, type MealCategory,
+  perServing, sumNutrition, type LoggedMeal, type Meal, type MealCategory,
 } from "../caltrack/types";
 
 const categories: { value: MealCategory; label: string }[] = [
@@ -14,11 +15,10 @@ const categories: { value: MealCategory; label: string }[] = [
 ];
 
 export default function Home() {
-  const handlePress = () => { router.push('/create');}
   const { meals, loggedMeals, goal } = useCalTrack();
   const logged = loggedMeals.flatMap((entry) => {
     const meal = meals.find((item) => item.id === entry.mealId);
-    return meal ? [{ meal, category: entry.category }] : [];
+    return meal ? [{ meal, category: entry.category, entry }] : [];
   });
   const eaten = sumNutrition(logged.map(({ meal }) => perServing(meal)));
   const progress = Math.min(eaten.calories / goal.calorieTarget, 1);
@@ -92,7 +92,7 @@ export default function Home() {
                   </View>
                   
                 ) : (
-                  categoryMeals.map(({ meal }) => <MealCard key={meal.id} meal={meal} />)
+                  categoryMeals.map(({ meal, entry }) => <MealCard key={entry.id} meal={meal} entry={entry} />)
                 )}
                 
               </View>
@@ -107,8 +107,20 @@ export default function Home() {
   );
 }
 
-function MealCard({ meal }: { meal: Meal }) {
+function MealCard({ meal, entry }: { meal: Meal; entry: LoggedMeal }) {
+  const { updateLog, deleteLog, isSaving } = useCalTrack();
+  const [choosing, setChoosing] = useState(false);
+  const change = async (category?: MealCategory) => {
+    try {
+      if (category) await updateLog(entry.id, category);
+      else await deleteLog(entry.id);
+      setChoosing(false);
+    } catch (error) {
+      Alert.alert("Could not update meal log", errorMessage(error));
+    }
+  };
   return (
+    <View>
     <View style={styles.mealCard}>
       <Text style={styles.mealEmoji}>🥗</Text>
       <View style={styles.mealInfo}>
@@ -117,7 +129,19 @@ function MealCard({ meal }: { meal: Meal }) {
           {Math.round(perServing(meal).calories)} kcal · {meal.ingredients.length} ingredients
         </Text>
       </View>
-      <Text style={styles.check}>✓</Text>
+      <Pressable disabled={isSaving} onPress={() => setChoosing((value) => !value)}>
+        <Text style={styles.link}>Change</Text>
+      </Pressable>
+      <Pressable disabled={isSaving} onPress={() => change()} style={{ marginLeft: 12 }}>
+        <Text style={styles.link}>Remove</Text>
+      </Pressable>
+    </View>
+    {choosing && <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12, padding: 12 }}>
+      {categories.map((category) => <Pressable key={category.value} disabled={isSaving}
+        onPress={() => change(category.value)}>
+        <Text style={styles.link}>{category.label}</Text>
+      </Pressable>)}
+    </View>}
     </View>
   );
 }

@@ -1,12 +1,20 @@
 import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { AppNav } from "../components/AppNav";
-import { useCalTrack } from "../caltrack/store";
+import { errorMessage, useCalTrack } from "../caltrack/store";
 
 export default function Goals() {
-  const { goal, updateGoal } = useCalTrack();
+  const { goal, updateGoal, isSaving } = useCalTrack();
   const [calories, setCalories] = useState(String(goal.calorieTarget));
   const [selected, setSelected] = useState(goal.goal);
+  const save = async () => {
+    try {
+      await updateGoal({ calorieTarget: Number(calories), goal: selected });
+      Alert.alert("Goals saved", "Your daily calorie target has been updated.");
+    } catch (error) {
+      Alert.alert("Could not save goals", errorMessage(error));
+    }
+  };
   return (
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content}>
@@ -61,14 +69,10 @@ export default function Goals() {
 
         <Pressable
           style={styles.save}
-          onPress={() =>
-            updateGoal({
-              calorieTarget: Math.max(Number(calories) || 0, 1),
-              goal: selected,
-            })
-          }
+          disabled={isSaving}
+          onPress={save}
         >
-          <Text style={styles.saveText}>Save changes</Text>
+          <Text style={styles.saveText}>{isSaving ? "Saving…" : "Save changes"}</Text>
         </Pressable>
       </ScrollView>
       <AppNav />

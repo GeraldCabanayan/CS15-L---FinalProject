@@ -1,6 +1,7 @@
-import { Link } from "expo-router";
+import { Link, router } from "expo-router";
 import { useState } from "react";
 import {
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -8,7 +9,7 @@ import {
   View,
 } from "react-native";
 import { AppNav } from "../components/AppNav";
-import { useCalTrack } from "../caltrack/store";
+import { errorMessage, useCalTrack } from "../caltrack/store";
 import { perServing, type MealCategory } from "../caltrack/types";
 
 const logCategories: { value: MealCategory; label: string }[] = [
@@ -18,8 +19,17 @@ const logCategories: { value: MealCategory; label: string }[] = [
 ];
 
 export default function Recipes() {
-  const { meals, logMeal, loggedMeals } = useCalTrack();
+  const { meals, logMeal, deleteMeal, loggedMeals, isSaving } = useCalTrack();
   const [mealToLog, setMealToLog] = useState<string | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const remove = async (id: string) => {
+    try {
+      await deleteMeal(id);
+      setDeleteId(null);
+    } catch (error) {
+      Alert.alert("Could not delete recipe", errorMessage(error));
+    }
+  };
 
   return (
     <View style={styles.screen}>
@@ -33,6 +43,7 @@ export default function Recipes() {
           ＋ Create recipe
         </Link>
 
+        {meals.length === 0 && <Text style={styles.subtitle}>No saved recipes yet. Create your first recipe above.</Text>}
         {meals.map((meal) => {
           const nutrition = perServing(meal);
           const logged = loggedMeals.some((item) => item.mealId === meal.id);
@@ -66,8 +77,30 @@ export default function Recipes() {
                 />
               </View>
 
+              <View style={styles.logCategoryList}>
+                <Pressable disabled={isSaving} style={styles.logCategory}
+                  onPress={() => router.push({ pathname: "/create", params: { id: meal.id } })}>
+                  <Text style={styles.logCategoryText}>Edit</Text>
+                </Pressable>
+                <Pressable disabled={isSaving} style={styles.logCategory} onPress={() => setDeleteId(meal.id)}>
+                  <Text style={styles.logCategoryText}>Delete</Text>
+                </Pressable>
+              </View>
+              {deleteId === meal.id && <View style={styles.logPicker}>
+                <Text style={styles.logPickerLabel}>Delete this recipe and all its meal logs?</Text>
+                <View style={styles.logCategoryList}>
+                  <Pressable disabled={isSaving} style={styles.logCategory} onPress={() => remove(meal.id)}>
+                    <Text style={styles.logCategoryText}>Confirm delete</Text>
+                  </Pressable>
+                  <Pressable style={styles.logCategory} onPress={() => setDeleteId(null)}>
+                    <Text style={styles.logCategoryText}>Cancel</Text>
+                  </Pressable>
+                </View>
+              </View>}
+
               <Pressable
                 style={[styles.log, logged && styles.logged]}
+                disabled={isSaving || logged}
                 onPress={() => !logged && setMealToLog(meal.id)}
               >
                 <Text style={[styles.logText, logged && styles.loggedText]}>
@@ -82,9 +115,14 @@ export default function Recipes() {
                       <Pressable
                         key={category.value}
                         style={styles.logCategory}
-                        onPress={() => {
-                          logMeal(meal.id, category.value);
-                          setMealToLog(null);
+                        disabled={isSaving}
+                        onPress={async () => {
+                          try {
+                            await logMeal(meal.id, category.value);
+                            setMealToLog(null);
+                          } catch (error) {
+                            Alert.alert("Could not log meal", errorMessage(error));
+                          }
                         }}
                       >
                         <Text style={styles.logCategoryText}>{category.label}</Text>
