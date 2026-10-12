@@ -24,12 +24,6 @@ const fields: [keyof Ingredient, string][] = [
   ["sodium", "Sodium (mg)"],
 ];
 
-const categories: { value: MealCategory; label: string }[] = [
-  { value: "uncategorized", label: "Uncategorized" },
-  { value: "breakfast", label: "Breakfast" },
-  { value: "lunch", label: "Lunch" },
-  { value: "dinner", label: "Dinner" },
-];
 
 export default function CreateMeal() {
   const { id } = useLocalSearchParams<{ id?: string }>();
@@ -133,20 +127,7 @@ function MealForm({ existing, editing, addMeal, updateMeal, isSaving }: {
           style={styles.input}
         />
 
-        <Text style={styles.label}>Meal category</Text>
-        <View style={styles.categoryList}>
-          {categories.map((item) => (
-            <Pressable
-              key={item.value}
-              onPress={() => setCategory(item.value)}
-              style={[styles.category, category === item.value && styles.categorySelected]}
-            >
-              <Text style={[styles.categoryText, category === item.value && styles.categoryTextSelected]}>
-                {item.label}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
+
 
         <View style={styles.sectionLine}>
           <Text style={styles.sectionTitle}>Ingredients</Text>
@@ -255,16 +236,33 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     backgroundColor: "#fff",
   },
-  categorySelected: { backgroundColor: "#dff6df", borderColor: "#00c100" },
-  categoryText: { color: "#666", fontWeight: "700", fontSize: 12 },
-  categoryTextSelected: { color: "#008d00" },
+
+
+  categorySelected: {
+      backgroundColor: "#dff6df",
+      borderColor: "#00c100"
+     }, 
+
+
+  categoryText: { 
+     color: "#666",
+     fontWeight: "700",
+     fontSize: 12 },
+     
+  categoryTextSelected: { 
+    color: "#008d00"
+   },
+
+
   sectionLine: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginTop: 28,
-    marginBottom: 10,
+    marginTop: 40,
+    marginBottom: 14,
   },
+ 
+
   sectionTitle: { fontSize: 19, fontWeight: "800" },
   total: { color: "#00a900", fontWeight: "800" },
   ingredient: {
@@ -273,6 +271,8 @@ const styles = StyleSheet.create({
     padding: 13,
     marginTop: 10,
   },
+
+
   ingredientHead: { flexDirection: "row", alignItems: "center", gap: 7 },
   ingredientNumber: {
     backgroundColor: "#dff6df",
@@ -282,6 +282,8 @@ const styles = StyleSheet.create({
     padding: 7,
     fontWeight: "800",
   },
+
+
   nameInput: { flex: 1, fontWeight: "700", padding: 6 },
   amountInput: { width: 70, color: "#777", padding: 6, textAlign: "right" },
   nutritionGrid: {
