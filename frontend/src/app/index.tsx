@@ -133,7 +133,7 @@ function MealCard({ meal, entry }: { meal: Meal; entry: LoggedMeal }) {
         <Text style={styles.link}>Change</Text>
       </Pressable>
       <Pressable disabled={isSaving} onPress={() => change()} style={{ marginLeft: 12 }}>
-        <Text style={styles.link}>Remove</Text>
+        <Text style={{ color: "red", fontWeight: "bold"}}>Remove</Text>
       </Pressable>
     </View>
     {choosing && <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12, padding: 12 }}>
