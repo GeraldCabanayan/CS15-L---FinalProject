@@ -1,71 +1,18 @@
-export type Nutrition = {
-  calories: number;
-  protein: number;
-  carbs: number;
-  fat: number;
-  fiber: number;
-  sugar: number;
-  sodium: number;
-};
-
-export type Ingredient = Nutrition & {
+export type Ingredient = {
   id: string;
   name: string;
-  amount: string;
+  amount: string; // free-text quantity, e.g. "2 cups" (display only)
+  calories: number; // calories this ingredient adds to the recipe
 };
 
-export type MealCategory = "uncategorized" | "breakfast" | "lunch" | "dinner";
-
-export type Meal = {
+export type Recipe = {
   id: string;
   name: string;
-  category?: MealCategory;
-  servings: number;
   ingredients: Ingredient[];
   createdAt: string;
 };
 
-export type LoggedMeal = {
-  id: number;
-  date: string;
-  mealId: string;
-  category: MealCategory;
-};
-
-export type UserGoal = {
-  calorieTarget: number;
-  goal: "lose" | "maintain" | "gain";
-};
-
-export const emptyNutrition: Nutrition = {
-  calories: 0,
-  protein: 0,
-  carbs: 0,
-  fat: 0,
-  fiber: 0,
-  sugar: 0,
-  sodium: 0,
-};
-
-export function sumNutrition(items: Nutrition[]): Nutrition {
-  return items.reduce(
-    (total, item) =>
-      Object.fromEntries(
-        Object.keys(emptyNutrition).map((key) => [
-          key,
-          total[key as keyof Nutrition] + item[key as keyof Nutrition],
-        ]),
-      ) as Nutrition,
-    { ...emptyNutrition },
-  );
-}
-
-export function perServing(meal: Meal): Nutrition {
-  const total = sumNutrition(meal.ingredients);
-  return Object.fromEntries(
-    Object.entries(total).map(([key, value]) => [
-      key,
-      value / Math.max(meal.servings, 1),
-    ]),
-  ) as Nutrition;
+/** A recipe's total calories is the sum of its ingredients' calories. */
+export function totalCalories(recipe: Pick<Recipe, "ingredients">): number {
+  return recipe.ingredients.reduce((sum, item) => sum + item.calories, 0);
 }

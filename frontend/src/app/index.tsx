@@ -1,165 +1,91 @@
-import { Link } from "expo-router";
-import { useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { router } from "expo-router";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { AppNav } from "../components/AppNav";
-import { errorMessage, useCalTrack } from "../caltrack/store";
-import {
-  perServing, sumNutrition, type LoggedMeal, type Meal, type MealCategory,
-} from "../caltrack/types";
+import { RecipeCard } from "../components/RecipeCard";
+import { useCalTrack } from "../caltrack/store";
+import { totalCalories } from "../caltrack/types";
 
-const categories: { value: MealCategory; label: string }[] = [
-  { value: "uncategorized", label: "Uncategorized" },
-  { value: "breakfast", label: "Breakfast" },
-  { value: "lunch", label: "Lunch" },
-  { value: "dinner", label: "Dinner" },
-];
-
+// Home / Dashboard: a quick summary of the saved recipes and the latest few.
 export default function Home() {
-  const { meals, loggedMeals, goal } = useCalTrack();
-  const logged = loggedMeals.flatMap((entry) => {
-    const meal = meals.find((item) => item.id === entry.mealId);
-    return meal ? [{ meal, category: entry.category, entry }] : [];
-  });
-  const eaten = sumNutrition(logged.map(({ meal }) => perServing(meal)));
-  const progress = Math.min(eaten.calories / goal.calorieTarget, 1);
+  const { recipes, loading, error, refresh } = useCalTrack();
+
+  const ingredientCount = recipes.reduce((sum, recipe) => sum + recipe.ingredients.length, 0);
+  const ranked = [...recipes].sort((a, b) => totalCalories(b) - totalCalories(a));
+  const highest = ranked[0];
+  const lowest = ranked.length > 1 ? ranked[ranked.length - 1] : undefined;
+  const recent = recipes.slice(0, 3); // recipes are already newest-first
 
   return (
-    
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.eyebrow}>GOOD MORNING</Text>
-            <Text style={styles.title}>Dexter</Text>
-          </View>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>CT</Text>
-          </View>
-        </View>
+        <Text style={styles.eyebrow}>CALTRACK</Text>
+        <Text style={styles.title}>Dashboard</Text>
+        <Text style={styles.subtitle}>Know how many calories are in what you cook.</Text>
 
-        <View style={styles.hero}>
-          <View>
-            <Text style={styles.heroLabel}>CALORIES</Text>
-            <Text style={styles.heroValue}>
-              {Math.round(eaten.calories)}{" "}
-              <Text style={styles.heroUnit}>/ {goal.calorieTarget} kcal</Text>
+        {loading && <ActivityIndicator color="#00c100" style={{ marginTop: 24 }} />}
+
+        {error && (
+          <Pressable style={styles.errorBox} onPress={refresh}>
+            <Text style={styles.errorText}>{error} Tap to retry.</Text>
+          </Pressable>
+        )}
+
+        {!loading && !error && recipes.length === 0 && (
+          <View style={styles.empty}>
+            <Text style={styles.emptyEmoji}>🥗</Text>
+            <Text style={styles.emptyTitle}>No recipes yet</Text>
+            <Text style={styles.emptyCopy}>
+              Add your first recipe and its ingredient calories to get started.
             </Text>
-            <Text style={styles.heroHint}>
-              {Math.max(goal.calorieTarget - eaten.calories, 0).toFixed(0)} kcal remaining
-            </Text>
+            <Pressable style={styles.addButton} onPress={() => router.push("/create")}>
+              <Text style={styles.addText}>＋ Add recipe</Text>
+            </Pressable>
           </View>
-          <View style={styles.ring}>
-            <Text style={styles.ringText}>{Math.round(progress * 100)}%</Text>
-          </View>
-        </View>
+        )}
 
-        <Text style={styles.sectionTitle}>Today&apos;s macros</Text>
-        <View style={styles.macroRow}>
-          <Macro label="Protein" value={eaten.protein} color="#00c100" />
-          <Macro label="Carbs" value={eaten.carbs} color="#ff9f1c" />
-          <Macro label="Fat" value={eaten.fat} color="#171717" />
-        </View>
-
-        <View style={styles.sectionLine}>
-          <Text style={styles.sectionTitle}>Your meals</Text>
-          <Link href="/recipes" style={styles.link}>
-            View all
-          </Link>
-        </View>
-
-
-        <View style={styles.categoryList}>
-          {categories.map((category) => {
-            const categoryMeals = logged.filter(
-              (entry) => entry.category === category.value,
-            );
-            
-          //code for meal category
-            return (
-              <View key={category.value} style={styles.categorySection}>
-                <View style={styles.categoryHeader}>
-                  <Text style={styles.categoryTitle}>{category.label}</Text>
-                  <Text style={styles.categoryCount}>{categoryMeals.length}</Text>
-                </View>
-                {categoryMeals.length === 0 ? (
-                  <View style={styles.categoryEmpty}>
-                    <Text style={styles.emptyCopy}>No meals logged</Text>
-                    {category.value === "uncategorized" && (
-                      <Link href="/recipes" style={styles.categoryLink}>
-                        Browse recipes
-                      </Link>
-                    )}
-                  </View>
-                  
-                ) : (
-                  categoryMeals.map(({ meal, entry }) => <MealCard key={entry.id} meal={meal} entry={entry} />)
-                )}
-                
+        {recipes.length > 0 && (
+          <>
+            <View style={styles.stats}>
+              <View style={styles.stat}>
+                <Text style={styles.statValue}>{recipes.length}</Text>
+                <Text style={styles.statLabel}>Recipes saved</Text>
               </View>
-            );
-          })}
-        </View>
+              <View style={styles.stat}>
+                <Text style={styles.statValue}>{ingredientCount}</Text>
+                <Text style={styles.statLabel}>Ingredients</Text>
+              </View>
+            </View>
+
+            {highest && (
+              <View style={styles.highlight}>
+                <Text style={styles.highlightLabel}>HIGHEST CALORIES</Text>
+                <Text style={styles.highlightName} numberOfLines={1}>{highest.name}</Text>
+                <Text style={styles.highlightValue}>{Math.round(totalCalories(highest))} kcal</Text>
+              </View>
+            )}
+            {lowest && (
+              <View style={[styles.highlight, styles.highlightLight]}>
+                <Text style={[styles.highlightLabel, styles.darkText]}>LOWEST CALORIES</Text>
+                <Text style={[styles.highlightName, styles.darkText]} numberOfLines={1}>{lowest.name}</Text>
+                <Text style={[styles.highlightValue, styles.greenText]}>
+                  {Math.round(totalCalories(lowest))} kcal
+                </Text>
+              </View>
+            )}
+
+            <View style={styles.sectionLine}>
+              <Text style={styles.sectionTitle}>Recent recipes</Text>
+              <Pressable onPress={() => router.replace("/recipes")}>
+                <Text style={styles.seeAll}>See all</Text>
+              </Pressable>
+            </View>
+            {recent.map((recipe) => (
+              <RecipeCard key={recipe.id} recipe={recipe} />
+            ))}
+          </>
+        )}
       </ScrollView>
       <AppNav />
-    </View>
-
-    
-  );
-}
-
-function MealCard({ meal, entry }: { meal: Meal; entry: LoggedMeal }) {
-  const { updateLog, deleteLog, isSaving } = useCalTrack();
-  const [choosing, setChoosing] = useState(false);
-  const change = async (category?: MealCategory) => {
-    try {
-      if (category) await updateLog(entry.id, category);
-      else await deleteLog(entry.id);
-      setChoosing(false);
-    } catch (error) {
-      Alert.alert("Could not update meal log", errorMessage(error));
-    }
-  };
-  return (
-    <View>
-    <View style={styles.mealCard}>
-      <Text style={styles.mealEmoji}>🥗</Text>
-      <View style={styles.mealInfo}>
-        <Text style={styles.mealName}>{meal.name}</Text>
-        <Text style={styles.mealMeta}>
-          {Math.round(perServing(meal).calories)} kcal · {meal.ingredients.length} ingredients
-        </Text>
-      </View>
-      <Pressable disabled={isSaving} onPress={() => setChoosing((value) => !value)}>
-        <Text style={styles.link}>Change</Text>
-      </Pressable>
-      <Pressable disabled={isSaving} onPress={() => change()} style={{ marginLeft: 12 }}>
-        <Text style={{ color: "red", fontWeight: "bold" }}>Remove</Text>
-      </Pressable>
-    </View>
-    {choosing && <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12, padding: 12 }}>
-      {categories.map((category) => <Pressable key={category.value} disabled={isSaving}
-        onPress={() => change(category.value)}>
-        <Text style={styles.link}>{category.label}</Text>
-      </Pressable>)}
-    </View>}
-    </View>
-  );
-}
-
-function Macro({
-  label,
-  value,
-  color,
-}: {
-  label: string;
-  value: number;
-  color: string;
-}) {
-  return (
-    <View style={styles.macro}>
-      <View style={[styles.dot, { backgroundColor: color }]} />
-      <Text style={styles.macroLabel}>{label}</Text>
-      <Text style={styles.macroValue}>{Math.round(value)}g</Text>
     </View>
   );
 }
