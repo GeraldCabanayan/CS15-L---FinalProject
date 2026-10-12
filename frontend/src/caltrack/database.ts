@@ -5,43 +5,42 @@ export type DatabaseConnection = Pick<SQLiteDatabase,
   "execAsync" | "runAsync" | "getAllAsync" | "getFirstAsync" | "withTransactionAsync" | "closeAsync"
 >;
 
-const schemaV1 = `
-CREATE TABLE meals (
+const SCHEMA_VERSION = 2;
+
+// Matches the approved proposal: a recipes table and an ingredients table that
+// points back to its recipe. A recipe's total calories is the sum of the
+// calories of its ingredients. (`position` only keeps ingredients in the order
+// the user entered them.)
+const schemaV2 = `
+CREATE TABLE recipes (
   id TEXT PRIMARY KEY NOT NULL,
-  name TEXT NOT NULL CHECK (length(trim(name)) > 0),
-  category TEXT NOT NULL CHECK (category IN ('uncategorized','breakfast','lunch','dinner')),
-  servings REAL NOT NULL CHECK (servings > 0),
-  created_at TEXT NOT NULL
+  title TEXT NOT NULL CHECK (length(trim(title)) > 0),
+  date_added TEXT NOT NULL
 );
 CREATE TABLE ingredients (
-  meal_id TEXT NOT NULL REFERENCES meals(id) ON DELETE CASCADE,
+  recipe_id TEXT NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
   id TEXT NOT NULL,
   position INTEGER NOT NULL,
-  name TEXT NOT NULL CHECK (length(trim(name)) > 0),
-  amount TEXT NOT NULL,
+  ingredient_name TEXT NOT NULL CHECK (length(trim(ingredient_name)) > 0),
   calories REAL NOT NULL CHECK (calories >= 0),
-  protein REAL NOT NULL CHECK (protein >= 0),
-  carbs REAL NOT NULL CHECK (carbs >= 0),
-  fat REAL NOT NULL CHECK (fat >= 0),
-  fiber REAL NOT NULL CHECK (fiber >= 0),
-  sugar REAL NOT NULL CHECK (sugar >= 0),
-  sodium REAL NOT NULL CHECK (sodium >= 0),
-  PRIMARY KEY (meal_id, id)
+  quantity TEXT NOT NULL DEFAULT '',
+  PRIMARY KEY (recipe_id, id)
 );
-CREATE TABLE meal_logs (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  meal_id TEXT NOT NULL REFERENCES meals(id) ON DELETE CASCADE,
-  log_date TEXT NOT NULL,
-  category TEXT NOT NULL CHECK (category IN ('uncategorized','breakfast','lunch','dinner')),
-  UNIQUE (log_date, meal_id)
-);
-CREATE TABLE user_goals (
-  id INTEGER PRIMARY KEY CHECK (id = 1),
-  calorie_target REAL NOT NULL CHECK (calorie_target > 0),
-  goal TEXT NOT NULL CHECK (goal IN ('lose','maintain','gain'))
-);
-INSERT INTO user_goals (id, calorie_target, goal) VALUES (1, 2300, 'maintain');
-PRAGMA user_version = 1;
+`;
+
+// The first version of the app also had meal logs, calorie goals, categories,
+// servings and macros. Those features were removed, so upgrading keeps every
+// saved recipe and ingredient and drops the rest.
+const upgradeV1ToV2 = `
+ALTER TABLE ingredients RENAME TO ingredients_v1;
+${schemaV2}
+INSERT INTO recipes (id, title, date_added) SELECT id, name, created_at FROM meals;
+INSERT INTO ingredients (recipe_id, id, position, ingredient_name, calories, quantity)
+  SELECT meal_id, id, position, name, calories, amount FROM ingredients_v1;
+DROP TABLE ingredients_v1;
+DROP TABLE meal_logs;
+DROP TABLE user_goals;
+DROP TABLE meals;
 `;
 
 export function createDatabaseService(open: () => Promise<DatabaseConnection>) {
@@ -53,11 +52,13 @@ export function createDatabaseService(open: () => Promise<DatabaseConnection>) {
     try {
       await db.execAsync("PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;");
       await db.withTransactionAsync(async () => {
-        const version = await db.getFirstAsync<{ user_version: number }>("PRAGMA user_version");
-        if ((version?.user_version ?? 0) > 1) {
+        const row = await db.getFirstAsync<{ user_version: number }>("PRAGMA user_version");
+        const version = row?.user_version ?? 0;
+        if (version > SCHEMA_VERSION) {
           throw new Error("This database requires a newer version of CalTrack.");
         }
-        if (!version?.user_version) await db.execAsync(schemaV1);
+        if (version === 0) await db.execAsync(`${schemaV2} PRAGMA user_version = ${SCHEMA_VERSION};`);
+        else if (version === 1) await db.execAsync(`${upgradeV1ToV2} PRAGMA user_version = ${SCHEMA_VERSION};`);
       });
       return db;
     } catch (error) {

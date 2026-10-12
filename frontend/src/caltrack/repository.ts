@@ -1,126 +1,103 @@
 import type { DatabaseConnection, DatabaseService } from "./database";
-import { emptyNutrition, type Ingredient, type LoggedMeal, type Meal, type MealCategory, type UserGoal } from "./types";
+import type { Ingredient, Recipe } from "./types";
 
-export function localDate(date = new Date()): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-}
+export type CalTrackSnapshot = { recipes: Recipe[] };
 
-export type CalTrackSnapshot = { meals: Meal[]; loggedMeals: LoggedMeal[]; goal: UserGoal; date: string };
 export interface CalTrackRepository {
-  read(date: string): Promise<CalTrackSnapshot>;
-  createMeal(meal: Meal): Promise<void>;
-  updateMeal(meal: Meal): Promise<void>;
-  deleteMeal(id: string): Promise<void>;
-  logMeal(id: string, category: MealCategory, date: string): Promise<void>;
-  updateLog(id: number, category: MealCategory): Promise<void>;
-  deleteLog(id: number): Promise<void>;
-  updateGoal(goal: UserGoal): Promise<void>;
+  read(): Promise<CalTrackSnapshot>;
+  createRecipe(recipe: Recipe): Promise<void>;
+  updateRecipe(recipe: Recipe): Promise<void>;
+  deleteRecipe(id: string): Promise<void>;
 }
 
-const categories: MealCategory[] = ["uncategorized", "breakfast", "lunch", "dinner"];
-function validateCategory(category: MealCategory) {
-  if (!categories.includes(category)) throw new Error("Choose a valid meal category.");
-}
-function positive(value: number, label: string) {
-  if (!Number.isFinite(value) || value <= 0) throw new Error(`${label} must be a positive number.`);
-}
-function validateMeal(meal: Meal) {
-  if (!meal.id || !meal.name.trim()) throw new Error("Add a recipe name.");
-  positive(meal.servings, "Servings");
-  validateCategory(meal.category ?? "uncategorized");
-  if (!meal.ingredients.length) throw new Error("Add at least one ingredient.");
-  if (new Set(meal.ingredients.map((i) => i.id)).size !== meal.ingredients.length) {
+type RecipeRow = { id: string; title: string; date_added: string };
+type IngredientRow = {
+  recipe_id: string;
+  id: string;
+  ingredient_name: string;
+  calories: number;
+  quantity: string;
+};
+
+function validateRecipe(recipe: Recipe) {
+  if (!recipe.id || !recipe.name.trim()) throw new Error("Give your recipe a name.");
+  if (!recipe.ingredients.length) throw new Error("Add at least one ingredient.");
+  if (new Set(recipe.ingredients.map((i) => i.id)).size !== recipe.ingredients.length) {
     throw new Error("Ingredient IDs must be unique within a recipe.");
   }
-  for (const item of meal.ingredients) {
-    if (!item.id || !item.name.trim()) throw new Error("Name every ingredient.");
-    for (const key of Object.keys(emptyNutrition) as (keyof typeof emptyNutrition)[]) {
-      if (!Number.isFinite(item[key]) || item[key] < 0) {
-        throw new Error("Nutrition values must be finite, non-negative numbers.");
-      }
+  for (const item of recipe.ingredients) {
+    if (!item.id || !item.name.trim()) throw new Error("Every ingredient needs a name.");
+    if (!Number.isFinite(item.calories) || item.calories < 0) {
+      throw new Error("Calories must be a number that is 0 or more.");
     }
   }
 }
 
-async function insertIngredients(db: DatabaseConnection, meal: Meal) {
-  for (const [position, i] of meal.ingredients.entries()) {
+async function insertIngredients(db: DatabaseConnection, recipe: Recipe) {
+  for (const [position, item] of recipe.ingredients.entries()) {
     await db.runAsync(
-      `INSERT INTO ingredients (meal_id, id, position, name, amount, calories, protein, carbs, fat, fiber, sugar, sodium)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      meal.id, i.id, position, i.name.trim(), i.amount, i.calories, i.protein, i.carbs, i.fat, i.fiber, i.sugar, i.sodium,
+      `INSERT INTO ingredients (recipe_id, id, position, ingredient_name, calories, quantity)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      recipe.id, item.id, position, item.name.trim(), item.calories, item.amount,
     );
   }
 }
 
 export function createSQLiteRepository(database: DatabaseService): CalTrackRepository {
   return {
-    read: (date) => database.transaction(async (db) => {
-      const rows = await db.getAllAsync<{ id: string; name: string; category: MealCategory; servings: number; created_at: string }>(
-        "SELECT * FROM meals ORDER BY created_at DESC, id DESC",
+    // READ: one transaction, so recipes and ingredients always match each other.
+    read: () => database.transaction(async (db) => {
+      const rows = await db.getAllAsync<RecipeRow>(
+        "SELECT id, title, date_added FROM recipes ORDER BY date_added DESC, id DESC",
       );
-      const ingredients = await db.getAllAsync<Ingredient & { meal_id: string; position: number }>(
-        "SELECT * FROM ingredients ORDER BY meal_id, position",
+      const items = await db.getAllAsync<IngredientRow>(
+        "SELECT recipe_id, id, ingredient_name, calories, quantity FROM ingredients ORDER BY recipe_id, position",
       );
-      const byMeal = new Map<string, Ingredient[]>();
-      for (const { meal_id, position: _position, ...ingredient } of ingredients) {
-        const list = byMeal.get(meal_id) ?? [];
-        list.push(ingredient);
-        byMeal.set(meal_id, list);
+      const byRecipe = new Map<string, Ingredient[]>();
+      for (const row of items) {
+        const list = byRecipe.get(row.recipe_id) ?? [];
+        list.push({ id: row.id, name: row.ingredient_name, amount: row.quantity, calories: row.calories });
+        byRecipe.set(row.recipe_id, list);
       }
-      const meals = rows.map(({ created_at, ...row }) => ({
-        ...row, createdAt: created_at, ingredients: byMeal.get(row.id) ?? [],
+      const recipes = rows.map((row) => ({
+        id: row.id,
+        name: row.title,
+        createdAt: row.date_added,
+        ingredients: byRecipe.get(row.id) ?? [],
       }));
-      const loggedMeals = await db.getAllAsync<LoggedMeal>(
-        "SELECT id, meal_id AS mealId, log_date AS date, category FROM meal_logs WHERE log_date = ? ORDER BY id", date,
-      );
-      const goal = await db.getFirstAsync<UserGoal>("SELECT calorie_target AS calorieTarget, goal FROM user_goals WHERE id = 1");
-      if (!goal) throw new Error("Your calorie goal could not be loaded.");
-      return { meals, loggedMeals, goal, date };
+      return { recipes };
     }),
-    async createMeal(meal) {
-      validateMeal(meal);
+
+    // CREATE
+    async createRecipe(recipe) {
+      validateRecipe(recipe);
       await database.transaction(async (db) => {
-        await db.runAsync("INSERT INTO meals (id, name, category, servings, created_at) VALUES (?, ?, ?, ?, ?)",
-          meal.id, meal.name.trim(), meal.category ?? "uncategorized", meal.servings, meal.createdAt);
-        await insertIngredients(db, meal);
+        await db.runAsync(
+          "INSERT INTO recipes (id, title, date_added) VALUES (?, ?, ?)",
+          recipe.id, recipe.name.trim(), recipe.createdAt,
+        );
+        await insertIngredients(db, recipe);
       });
     },
-    async updateMeal(meal) {
-      validateMeal(meal);
+
+    // UPDATE: the recipe row is updated in place; its ingredient list is replaced.
+    async updateRecipe(recipe) {
+      validateRecipe(recipe);
       await database.transaction(async (db) => {
-        const result = await db.runAsync("UPDATE meals SET name = ?, category = ?, servings = ? WHERE id = ?",
-          meal.name.trim(), meal.category ?? "uncategorized", meal.servings, meal.id);
+        const result = await db.runAsync(
+          "UPDATE recipes SET title = ? WHERE id = ?",
+          recipe.name.trim(), recipe.id,
+        );
         if (!result.changes) throw new Error("This recipe no longer exists.");
-        await db.runAsync("DELETE FROM ingredients WHERE meal_id = ?", meal.id);
-        await insertIngredients(db, meal);
+        await db.runAsync("DELETE FROM ingredients WHERE recipe_id = ?", recipe.id);
+        await insertIngredients(db, recipe);
       });
     },
-    async deleteMeal(id) {
+
+    // DELETE: ON DELETE CASCADE removes the recipe's ingredients too.
+    async deleteRecipe(id) {
       await database.execute(async (db) => {
-        await db.runAsync("DELETE FROM meals WHERE id = ?", id);
-      });
-    },
-    async logMeal(id, category, date) {
-      validateCategory(category);
-      await database.execute(async (db) => {
-        await db.runAsync("INSERT INTO meal_logs (meal_id, log_date, category) VALUES (?, ?, ?) ON CONFLICT (log_date, meal_id) DO NOTHING", id, date, category);
-      });
-    },
-    async updateLog(id, category) {
-      validateCategory(category);
-      await database.execute(async (db) => {
-        const result = await db.runAsync("UPDATE meal_logs SET category = ? WHERE id = ?", category, id);
-        if (!result.changes) throw new Error("This meal log no longer exists.");
-      });
-    },
-    async deleteLog(id) {
-      await database.execute(async (db) => { await db.runAsync("DELETE FROM meal_logs WHERE id = ?", id); });
-    },
-    async updateGoal(goal) {
-      positive(goal.calorieTarget, "Calorie target");
-      if (!["lose", "maintain", "gain"].includes(goal.goal)) throw new Error("Choose a valid goal.");
-      await database.execute(async (db) => {
-        await db.runAsync("UPDATE user_goals SET calorie_target = ?, goal = ? WHERE id = 1", goal.calorieTarget, goal.goal);
+        await db.runAsync("DELETE FROM recipes WHERE id = ?", id);
       });
     },
   };
