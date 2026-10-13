@@ -97,225 +97,133 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 22,
-    paddingBottom: 30,
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 24,
+    paddingTop: 60,
+    paddingBottom: 24,
   },
   eyebrow: {
     color: "#00a900",
-    fontSize: 11,
     fontWeight: "800",
+    fontSize: 12,
     letterSpacing: 1.5,
   },
   title: {
-    color: "#101010",
-    fontSize: 29,
+    fontSize: 32,
+    fontWeight: "800",
+    color: "#111",
+    marginTop: 4,
+  },
+  subtitle: {
+    color: "#777",
+    marginTop: 4,
+    marginBottom: 20,
+  },
+  errorBox: {
+    backgroundColor: "#fdecec",
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 8,
+  },
+  errorText: {
+    color: "#b3261e",
+    fontSize: 12,
+  },
+  stats: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  stat: {
+    flex: 1,
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 16,
+  },
+  statValue: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: "#008d00",
+  },
+  statLabel: {
+    color: "#777",
+    fontSize: 12,
+    marginTop: 2,
+  },
+  highlight: {
+    backgroundColor: "#111",
+    borderRadius: 18,
+    padding: 18,
+    marginTop: 12,
+  },
+  highlightLight: {
+    backgroundColor: "#dff6df",
+  },
+  highlightLabel: {
+    color: "#aaa",
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 1.2,
+  },
+  highlightName: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "800",
+    marginTop: 6,
+  },
+  highlightValue: {
+    color: "#7be07b",
+    fontSize: 24,
     fontWeight: "800",
     marginTop: 4,
   },
-  avatar: {
-    backgroundColor: "#dff6df",
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
+  darkText: {
+    color: "#1c3a1c",
   },
-  avatarText: {
-    color: "#008900",
-    fontWeight: "800",
-  },
-  hero: {
-    backgroundColor: "#111",
-    borderRadius: 24,
-    padding: 22,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  heroLabel: {
-    color: "#a9a9a9",
-    fontSize: 11,
-    fontWeight: "800",
-    letterSpacing: 1,
-  },
-  heroValue: {
-    color: "#fff",
-    fontSize: 29,
-    fontWeight: "800",
-    marginTop: 10,
-  },
-  heroUnit: {
-    color: "#a9a9a9",
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  heroHint: {
-    color: "#ffb23d",
-    marginTop: 8,
-    fontSize: 12,
-  },
-  ring: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    borderWidth: 7,
-    borderColor: "#00c100",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  ringText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "800",
-  },
-  sectionTitle: {
-    color: "#171717",
-    fontSize: 18,
-    fontWeight: "800",
-    marginTop: 26,
-    marginBottom: 13,
-  },
-  macroRow: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  macro: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 14,
-    flex: 1,
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginBottom: 9,
-  },
-  macroLabel: {
-    color: "#777",
-    fontSize: 12,
-  },
-  macroValue: {
-    color: "#171717",
-    fontSize: 18,
-    fontWeight: "800",
-    marginTop: 5,
+  greenText: {
+    color: "#008d00",
   },
   sectionLine: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-  },
-  link: {
-    color: "#00a900",
-    fontWeight: "700",
-  },
-  categoryList: {
-    gap: 12,
-  },
-  categorySection: {
-    backgroundColor: "#f1f1f1",
-    borderRadius: 18,
-    padding: 10,
-  },
-  categoryHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 4,
+    marginTop: 26,
     marginBottom: 10,
   },
-  categoryTitle: {
-    fontSize: 15,
-    fontWeight: "800",
-    color: "#171717",
-  },
-  categoryCount: {
-    minWidth: 22,
-    textAlign: "center",
-    color: "#008d00",
-    backgroundColor: "#dff6df",
-    borderRadius: 11,
-    paddingVertical: 3,
-    fontSize: 11,
+  sectionTitle: {
+    fontSize: 19,
     fontWeight: "800",
   },
-  categoryEmpty: {
-    backgroundColor: "#fff",
-    borderRadius: 14,
-    padding: 14,
+  seeAll: {
+    color: "#00a900",
+    fontWeight: "800",
+  },
+  empty: {
     alignItems: "center",
+    paddingVertical: 48,
+  },
+  emptyEmoji: {
+    fontSize: 46,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    marginTop: 8,
   },
   emptyCopy: {
-    color: "#777",
-    fontSize: 12,
+    color: "#888",
+    marginTop: 6,
     textAlign: "center",
-  },
-  categoryLink: {
-    color: "#00a900",
-    fontSize: 12,
-    fontWeight: "800",
-    marginTop: 9,
-  },
-  mealCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    borderRadius: 14,
-    padding: 13,
-    marginBottom: 8,
-  },
-  mealEmoji: {
-    fontSize: 25,
-    marginRight: 11,
-  },
-  mealInfo: {
-    flex: 1,
-  },
-  mealName: {
-    fontWeight: "800",
-    fontSize: 15,
-  },
-  mealMeta: {
-    color: "#777",
-    marginTop: 4,
-    fontSize: 12,
-  },
-  check: {
-    color: "#00c100",
-    fontSize: 22,
-    fontWeight: "800",
-  },
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    position: 'relative',
-    zIndex: 10,
-  },
-
-  button: {
-    flex: 1,
-    backgroundColor: '#00c100',
-    paddingVertical: 12,
     paddingHorizontal: 24,
-    borderRadius: 8,
-    elevation: 3, // Shadow for Android
-    shadowColor: '#000', // Shadow for iOS
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    position: "relative",
-    zIndex: 11,
-    top: 855
   },
-
-  buttonPressed: {
-    opacity: 0.7,
-    backgroundColor: '#61cf61', // Darkens the button when pressed
+  addButton: {
+    backgroundColor: "#00c100",
+    borderRadius: 13,
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    marginTop: 20,
+  },
+  addText: {
+    color: "#fff",
+    fontWeight: "800",
+    fontSize: 16,
   },
 });

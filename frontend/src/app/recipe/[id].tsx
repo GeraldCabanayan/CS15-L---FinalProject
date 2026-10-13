@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { AppNav } from "../../components/AppNav";
 import { useCalTrack } from "../../caltrack/store";
 import { totalCalories } from "../../caltrack/types";
@@ -26,23 +26,28 @@ export default function RecipeDetails() {
 
   const total = totalCalories(recipe);
 
-  const confirmDelete = () =>
-    Alert.alert("Delete recipe", `Delete "${recipe.name}"? This cannot be undone.`, [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await deleteRecipe(recipe.id);
-            router.replace("/recipes");
-          } catch (e) {
-            console.error("Delete failed:", e);
-            Alert.alert("Could not delete", "Please try again.");
-          }
-        },
-      },
-    ]);
+const doDelete = async () => {
+  try {
+    await deleteRecipe(recipe.id);
+    router.replace("/recipes");
+  } catch (e) {
+    console.error("Delete failed:", e);
+    if (Platform.OS === "web") window.alert("Could not delete. Please try again.");
+    else Alert.alert("Could not delete", "Please try again.");
+  }
+};
+
+const confirmDelete = () => {
+  const message = `Delete "${recipe.name}"? This cannot be undone.`;
+  if (Platform.OS === "web") {
+    if (window.confirm(message)) void doDelete();
+    return;
+  }
+  Alert.alert("Delete recipe", message, [
+    { text: "Cancel", style: "cancel" },
+    { text: "Delete", style: "destructive", onPress: () => void doDelete() },
+  ]);
+};
 
   return (
     <View style={styles.screen}>
@@ -99,17 +104,77 @@ export default function RecipeDetails() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: "#fafafa" },
-  content: { padding: 22, paddingTop: 60, paddingBottom: 30 },
-  back: { color: "#00a900", fontWeight: "800", fontSize: 16, marginBottom: 16 },
-  title: { fontSize: 30, fontWeight: "800", color: "#111" },
-  totalCard: { backgroundColor: "#111", borderRadius: 18, padding: 20, marginTop: 18 },
-  totalLabel: { color: "#aaa", fontSize: 11, fontWeight: "800", letterSpacing: 1.2 },
-  totalValue: { color: "#fff", fontSize: 38, fontWeight: "800", marginTop: 6 },
-  totalUnit: { color: "#7be07b", fontSize: 16, fontWeight: "700" },
-  section: { fontSize: 19, fontWeight: "800", marginTop: 28, marginBottom: 6 },
-  ingredient: { backgroundColor: "#fff", borderRadius: 14, padding: 14, marginTop: 8 },
-  ingredientRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  screen: { 
+    flex: 1, 
+    backgroundColor: "#fafafa" 
+  },
+
+  content: { 
+    padding: 22, 
+    paddingTop: 60, 
+    paddingBottom: 30 
+  },
+
+  back: { 
+    color: "#00a900", 
+    fontWeight: "800", 
+    fontSize: 16, 
+    marginBottom: 16 
+  },
+
+  title: { 
+    fontSize: 30, 
+    fontWeight: "800", 
+    color: "#111" 
+  },
+
+  totalCard: { 
+    backgroundColor: "#111", 
+    borderRadius: 18, 
+    padding: 20, 
+    marginTop: 18 
+  },
+
+  totalLabel: { 
+    color: "#aaa", 
+    fontSize: 11, 
+    fontWeight: "800", 
+    letterSpacing: 1.2 
+  },
+
+  totalValue: { 
+    color: "#fff", 
+    fontSize: 38, 
+    fontWeight: "800", 
+    marginTop: 6 
+  },
+
+  totalUnit: { 
+    color: "#7be07b", 
+    fontSize: 16, 
+    fontWeight: "700" 
+  },
+
+  section: { 
+    fontSize: 19, 
+    fontWeight: "800", 
+    marginTop: 28, 
+    marginBottom: 6 
+  },
+
+  ingredient: { 
+    backgroundColor: "#fff", 
+    borderRadius: 14, 
+    padding: 14, 
+    marginTop: 8 
+  },
+
+  ingredientRow: { 
+    flexDirection: "row", 
+    alignItems: "center", 
+    justifyContent: "space-between" 
+  },
+
   ingredientInfo: { flex: 1, marginRight: 12 },
   ingredientName: { fontSize: 15, fontWeight: "800", color: "#111" },
   ingredientAmount: { color: "#888", fontSize: 12, marginTop: 2 },

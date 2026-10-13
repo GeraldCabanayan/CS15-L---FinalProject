@@ -6,7 +6,7 @@ import { useCalTrack } from "../caltrack/store";
 
 // Recipes: the full list of saved recipes. Saving a recipe lands here.
 export default function Recipes() {
-  const { recipes, loading, error, refresh } = useCalTrack();
+  const { recipes, error, loading, refresh } = useCalTrack();
 
   return (
     <View style={styles.screen}>
@@ -50,17 +50,78 @@ export default function Recipes() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: "#fafafa" },
-  content: { padding: 22, paddingTop: 60, paddingBottom: 20 },
-  title: { fontSize: 32, fontWeight: "800", color: "#111" },
-  subtitle: { color: "#777", marginTop: 4, marginBottom: 18 },
-  footer: { paddingHorizontal: 22, paddingVertical: 12 },
-  addButton: { backgroundColor: "#00c100", borderRadius: 13, alignItems: "center", padding: 16 },
-  addText: { color: "#fff", fontWeight: "800", fontSize: 16 },
-  errorBox: { backgroundColor: "#fdecec", borderRadius: 12, padding: 12, marginTop: 8 },
-  errorText: { color: "#b3261e", fontSize: 12 },
-  empty: { alignItems: "center", paddingVertical: 56 },
-  emptyEmoji: { fontSize: 46 },
-  emptyTitle: { fontSize: 18, fontWeight: "800", marginTop: 8 },
-  emptyCopy: { color: "#888", marginTop: 6, textAlign: "center", paddingHorizontal: 24 },
+  screen: { 
+    flex: 1, 
+    backgroundColor: "#fafafa" 
+  },
+
+  content: { 
+    padding: 22, 
+    paddingTop: 60, 
+    paddingBottom: 20 
+  },
+
+  title: { 
+    fontSize: 32, 
+    fontWeight: "800", 
+    color: "#111" 
+  },
+
+  subtitle: { 
+    color: "#777", 
+    marginTop: 4, 
+    marginBottom: 18 
+  },
+
+  footer: { 
+    paddingHorizontal: 22, 
+    paddingVertical: 12 
+  },
+
+  addButton: { 
+    backgroundColor: "#00c100", 
+    borderRadius: 13, 
+    alignItems: "center", 
+    padding: 16 
+  },
+
+  addText: { 
+    color: "#fff", 
+    fontWeight: "800", 
+    fontSize: 16 
+  },
+
+  errorBox: { 
+    backgroundColor: "#fdecec", 
+    borderRadius: 12, 
+    padding: 12, 
+    marginTop: 8 
+  },
+
+  errorText: { 
+    color: "#b3261e", 
+    fontSize: 12 
+  },
+
+  empty: { 
+    alignItems: "center", 
+    paddingVertical: 56 
+  },
+
+  emptyEmoji: { 
+    fontSize: 46 
+  },
+
+  emptyTitle: { 
+    fontSize: 18, 
+    fontWeight: "800", 
+    marginTop: 8 
+  },
+  
+  emptyCopy: { 
+    color: "#888", 
+    marginTop: 6, 
+    textAlign: "center", 
+    paddingHorizontal: 24 
+  },
 });

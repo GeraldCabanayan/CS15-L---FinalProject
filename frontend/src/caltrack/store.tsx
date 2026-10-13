@@ -1,20 +1,17 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import { ActivityIndicator, AppState, Pressable, StyleSheet, Text, View } from "react-native";
-import { localDate, type CalTrackRepository, type CalTrackSnapshot } from "./repository";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import type { CalTrackRepository, CalTrackSnapshot } from "./repository";
 import { calTrackRepository } from "./sqlite";
-import type { Meal, MealCategory, UserGoal } from "./types";
+import type { Recipe } from "./types";
 
 type Store = CalTrackSnapshot & {
   isSaving: boolean;
-  addMeal: (meal: Meal) => Promise<void>;
-  updateMeal: (meal: Meal) => Promise<void>;
-  deleteMeal: (id: string) => Promise<void>;
-  logMeal: (id: string, category: MealCategory) => Promise<void>;
-  updateLog: (id: number, category: MealCategory) => Promise<void>;
-  deleteLog: (id: number) => Promise<void>;
-  updateGoal: (goal: UserGoal) => Promise<void>;
+  addRecipe: (recipe: Recipe) => Promise<void>;
+  updateRecipe: (recipe: Recipe) => Promise<void>;
+  deleteRecipe: (id: string) => Promise<void>;
 };
 const Context = createContext<Store | null>(null);
+
 export function errorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Please try again.";
 }
@@ -28,13 +25,14 @@ export function CalTrackProvider({ children, repository = calTrackRepository }: 
   const mounted = useRef(false);
   const queue = useRef<Promise<unknown>>(Promise.resolve());
 
-  // Serialize each mutation and its refresh together to prevent stale UI reads.
+  // Serialize each change and the reload that follows it, so the screens always
+  // show what is actually stored in SQLite.
   const run = useCallback((action?: () => Promise<void>): Promise<void> => {
     if (mounted.current) setPending((value) => value + 1);
     const result = queue.current.then(async () => {
       if (action) await action();
       try {
-        const next = await repository.read(localDate());
+        const next = await repository.read();
         if (mounted.current) { setSnapshot(next); setError(null); }
       } catch (failure) {
         if (mounted.current) setError(errorMessage(failure));
@@ -47,28 +45,18 @@ export function CalTrackProvider({ children, repository = calTrackRepository }: 
     });
   }, [repository]);
 
+  // Load the saved recipes once when the app starts.
   useEffect(() => {
     mounted.current = true;
-    const refresh = () => { void run().catch(() => undefined); };
-    refresh();
-    const listener = AppState.addEventListener("change", (state) => {
-      if (state === "active") refresh();
-    });
-    let timer: ReturnType<typeof setTimeout>;
-    const schedule = () => {
-      const now = new Date();
-      const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-      timer = setTimeout(() => { refresh(); schedule(); }, tomorrow.getTime() - now.getTime() + 100);
-    };
-    schedule();
-    return () => { mounted.current = false; listener.remove(); clearTimeout(timer); };
+    void run().catch(() => undefined);
+    return () => { mounted.current = false; };
   }, [run]);
 
   if (error || !snapshot) {
     return (
       <View style={styles.status}>
         {error ? <>
-          <Text style={styles.title}>Unable to load your data</Text>
+          <Text style={styles.title}>Unable to load your recipes</Text>
           <Text>{error}</Text>
           <Pressable disabled={pending > 0} onPress={() => { void run().catch(() => undefined); }}>
             <Text style={styles.retry}>{pending ? "Retrying…" : "Retry"}</Text>
@@ -81,13 +69,9 @@ export function CalTrackProvider({ children, repository = calTrackRepository }: 
   const value: Store = {
     ...snapshot,
     isSaving: pending > 0,
-    addMeal: (meal) => run(() => repository.createMeal(meal)),
-    updateMeal: (meal) => run(() => repository.updateMeal(meal)),
-    deleteMeal: (id) => run(() => repository.deleteMeal(id)),
-    logMeal: (id, category) => run(() => repository.logMeal(id, category, localDate())),
-    updateLog: (id, category) => run(() => repository.updateLog(id, category)),
-    deleteLog: (id) => run(() => repository.deleteLog(id)),
-    updateGoal: (goal) => run(() => repository.updateGoal(goal)),
+    addRecipe: (recipe) => run(() => repository.createRecipe(recipe)),
+    updateRecipe: (recipe) => run(() => repository.updateRecipe(recipe)),
+    deleteRecipe: (id) => run(() => repository.deleteRecipe(id)),
   };
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }
