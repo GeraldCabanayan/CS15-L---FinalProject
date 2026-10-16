@@ -1,16 +1,17 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { ActivityIndicator, AppState, Pressable, StyleSheet, Text, View } from "react-native";
-import { localDate, type CalTrackRepository, type CalTrackSnapshot } from "./repository";
+import { localDate, validateDate, type CalTrackRepository, type CalTrackSnapshot } from "./repository";
 import { calTrackRepository } from "./sqlite";
 import type { Meal, MealCategory, UserGoal } from "./types";
 
 type Store = CalTrackSnapshot & {
   isSaving: boolean;
+  selectDate: (date: string) => Promise<void>;
   addMeal: (meal: Meal) => Promise<void>;
   updateMeal: (meal: Meal) => Promise<void>;
   deleteMeal: (id: string) => Promise<void>;
-  logMeal: (id: string, category: MealCategory) => Promise<void>;
-  updateLog: (id: number, category: MealCategory) => Promise<void>;
+  logMeal: (id: string, category: MealCategory, quantity?: number) => Promise<void>;
+  updateLog: (id: number, category: MealCategory, quantity?: number) => Promise<void>;
   deleteLog: (id: number) => Promise<void>;
   updateGoal: (goal: UserGoal) => Promise<void>;
 };
@@ -27,6 +28,8 @@ export function CalTrackProvider({ children, repository = calTrackRepository }: 
   const [pending, setPending] = useState(0);
   const mounted = useRef(false);
   const queue = useRef<Promise<unknown>>(Promise.resolve());
+  const selectedDate = useRef(localDate());
+  const lastToday = useRef(localDate());
 
   // Serialize each mutation and its refresh together to prevent stale UI reads.
   const run = useCallback((action?: () => Promise<void>): Promise<void> => {
@@ -34,7 +37,7 @@ export function CalTrackProvider({ children, repository = calTrackRepository }: 
     const result = queue.current.then(async () => {
       if (action) await action();
       try {
-        const next = await repository.read(localDate());
+        const next = await repository.read(selectedDate.current);
         if (mounted.current) { setSnapshot(next); setError(null); }
       } catch (failure) {
         if (mounted.current) setError(errorMessage(failure));
@@ -49,7 +52,13 @@ export function CalTrackProvider({ children, repository = calTrackRepository }: 
 
   useEffect(() => {
     mounted.current = true;
-    const refresh = () => { void run().catch(() => undefined); };
+    const refresh = () => {
+      void run(async () => {
+        const today = localDate();
+        if (selectedDate.current === lastToday.current) selectedDate.current = today;
+        lastToday.current = today;
+      }).catch(() => undefined);
+    };
     refresh();
     const listener = AppState.addEventListener("change", (state) => {
       if (state === "active") refresh();
@@ -81,11 +90,15 @@ export function CalTrackProvider({ children, repository = calTrackRepository }: 
   const value: Store = {
     ...snapshot,
     isSaving: pending > 0,
+    selectDate: (date) => {
+      validateDate(date);
+      return run(async () => { selectedDate.current = date; });
+    },
     addMeal: (meal) => run(() => repository.createMeal(meal)),
     updateMeal: (meal) => run(() => repository.updateMeal(meal)),
     deleteMeal: (id) => run(() => repository.deleteMeal(id)),
-    logMeal: (id, category) => run(() => repository.logMeal(id, category, localDate())),
-    updateLog: (id, category) => run(() => repository.updateLog(id, category)),
+    logMeal: (id, category, quantity = 1) => run(() => repository.logMeal(id, category, snapshot.date, quantity)),
+    updateLog: (id, category, quantity) => run(() => repository.updateLog(id, category, quantity)),
     deleteLog: (id) => run(() => repository.deleteLog(id)),
     updateGoal: (goal) => run(() => repository.updateGoal(goal)),
   };

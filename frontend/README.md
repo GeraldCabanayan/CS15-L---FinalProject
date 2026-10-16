@@ -1,5 +1,9 @@
 # CalTrack local database
 
+> For the current calendar, diary, suggestions, schema version 3, and manual test
+> instructions, see [CALTRACK_CHANGES.md](CALTRACK_CHANGES.md). The notes below
+> describe the original version 1 implementation and its earlier test suite.
+
 CalTrack is an Expo SDK 57 app using Expo Router (`src/app`). It stores recipes,
 ingredient nutrition, daily meal logs, and calorie goals in **`caltrack.db`** using
 the already installed `expo-sqlite` 57.0.3. No backend, API, or AsyncStorage is

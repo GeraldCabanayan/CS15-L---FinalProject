@@ -23,6 +23,7 @@ export type Meal = {
   servings: number;
   ingredients: Ingredient[];
   createdAt: string;
+  nutritionComplete?: boolean;
 };
 
 export type LoggedMeal = {
@@ -30,10 +31,14 @@ export type LoggedMeal = {
   date: string;
   mealId: string;
   category: MealCategory;
+  quantity: number;
 };
 
 export type UserGoal = {
   calorieTarget: number;
+  proteinTarget?: number | null;
+  carbsTarget?: number | null;
+  fatTarget?: number | null;
   goal: "lose" | "maintain" | "gain";
 };
 
@@ -65,7 +70,25 @@ export function perServing(meal: Meal): Nutrition {
   return Object.fromEntries(
     Object.entries(total).map(([key, value]) => [
       key,
-      value / Math.max(meal.servings, 1),
+      value / meal.servings,
     ]),
   ) as Nutrition;
 }
+
+export function scaleNutrition(nutrition: Nutrition, quantity: number): Nutrition {
+  return Object.fromEntries(Object.entries(nutrition).map(([key, value]) => [key, value * quantity])) as Nutrition;
+}
+
+export function dailyNutrition(meals: Meal[], logs: LoggedMeal[]): Nutrition {
+  const byId = new Map(meals.map((meal) => [meal.id, meal]));
+  return sumNutrition(logs.flatMap((log) => {
+    const meal = byId.get(log.mealId);
+    return meal ? [scaleNutrition(perServing(meal), log.quantity)] : [];
+  }));
+}
+
+export function calorieProgress(consumed: number, target: number) {
+  return { remaining: Math.max(target - consumed, 0), over: Math.max(consumed - target, 0), percent: consumed / target * 100 };
+}
+
+export const mealCategories: MealCategory[] = ['breakfast', 'lunch', 'dinner', 'uncategorized'];

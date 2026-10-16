@@ -6,21 +6,20 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { AppNav } from "../components/AppNav";
 import { errorMessage, useCalTrack } from "../caltrack/store";
-import { perServing, type MealCategory } from "../caltrack/types";
+import { DateHeading, LogRecipe } from "../components/DailyDiary";
+import { nameMatches } from "../caltrack/suggestions";
+import { perServing } from "../caltrack/types";
 
-const logCategories: { value: MealCategory; label: string }[] = [
-  { value: "breakfast", label: "Breakfast" },
-  { value: "lunch", label: "Lunch" },
-  { value: "dinner", label: "Dinner" },
-];
 
 export default function Recipes() {
-  const { meals, logMeal, deleteMeal, loggedMeals, isSaving } = useCalTrack();
-  const [mealToLog, setMealToLog] = useState<string | null>(null);
+  const { meals, deleteMeal, isSaving } = useCalTrack();
+  const [query, setQuery] = useState("");
+  const filtered = query.trim() ? nameMatches(meals, query) : meals;
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const remove = async (id: string) => {
     try {
@@ -43,17 +42,19 @@ export default function Recipes() {
           ＋ Create recipe
         </Link>
 
+        <DateHeading />
+        <TextInput accessibilityLabel="Search saved recipes" placeholder="Search saved recipes" value={query} onChangeText={setQuery} style={{ minHeight: 48, padding: 12, backgroundColor: "#fff", marginTop: 16, borderRadius: 12 }} />
+        {query.trim() && !filtered.length && <Text>No matching saved recipes. Try another name or create a recipe.</Text>}
         {meals.length === 0 && <Text style={styles.subtitle}>No saved recipes yet. Create your first recipe above.</Text>}
-        {meals.map((meal) => {
+        {filtered.map((meal) => {
           const nutrition = perServing(meal);
-          const logged = loggedMeals.some((item) => item.mealId === meal.id);
-          const choosingCategory = mealToLog === meal.id;
+
 
           return (
             <View key={meal.id} style={styles.card}>
               <View style={styles.food}>
                 <Text style={styles.emoji}>🥗</Text>
-                <View>
+                <View style={{ flex: 1 }}>
                   <Text style={styles.name}>{meal.name}</Text>
                   <Text style={styles.meta}>
                     {meal.servings} serving{meal.servings === 1 ? "" : "s"} ·{" "}
@@ -62,6 +63,7 @@ export default function Recipes() {
                 </View>
               </View>
 
+              {meal.nutritionComplete === false && <Text style={styles.subtitle}>Imported with calories only. Edit this recipe to confirm its serving yield and enter missing nutrients.</Text>}
               <View style={styles.stats}>
                 <Stat
                   label="Calories"
@@ -75,6 +77,7 @@ export default function Recipes() {
                   label="Carbs"
                   value={`${Math.round(nutrition.carbs)} g`}
                 />
+                <Stat label="Fat" value={`${Math.round(nutrition.fat)} g`} />
               </View>
 
               <View style={styles.logCategoryList}>
@@ -98,39 +101,7 @@ export default function Recipes() {
                 </View>
               </View>}
 
-              <Pressable
-                style={[styles.log, logged && styles.logged]}
-                disabled={isSaving || logged}
-                onPress={() => !logged && setMealToLog(meal.id)}
-              >
-                <Text style={[styles.logText, logged && styles.loggedText]}>
-                  {logged ? "✓" : "Add to today"}
-                </Text>
-              </Pressable>
-              {choosingCategory && (
-                <View style={styles.logPicker}>
-                  <Text style={styles.logPickerLabel}>Add to which meal?</Text>
-                  <View style={styles.logCategoryList}>
-                    {logCategories.map((category) => (
-                      <Pressable
-                        key={category.value}
-                        style={styles.logCategory}
-                        disabled={isSaving}
-                        onPress={async () => {
-                          try {
-                            await logMeal(meal.id, category.value);
-                            setMealToLog(null);
-                          } catch (error) {
-                            Alert.alert("Could not log meal", errorMessage(error));
-                          }
-                        }}
-                      >
-                        <Text style={styles.logCategoryText}>{category.label}</Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                </View>
-              )}
+              <LogRecipe meal={meal} />
             </View>
           );
         })}
@@ -210,6 +181,7 @@ const styles = StyleSheet.create({
   logPickerLabel: { color: "#555", fontSize: 12, fontWeight: "700" },
   logCategoryList: { flexDirection: "row", gap: 8, marginTop: 9 },
   logCategory: {
+    minHeight: 44,
     backgroundColor: "#fff",
     borderColor: "#00c100",
     borderRadius: 8,

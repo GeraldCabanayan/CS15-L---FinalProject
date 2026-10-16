@@ -2,6 +2,7 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View, } from "react-native";
+import { ingredientMatches } from "../caltrack/suggestions";
 import { AppNav } from "../components/AppNav";
 import { errorMessage, useCalTrack } from "../caltrack/store";
 import { emptyNutrition, sumNutrition, type Ingredient, type Nutrition, type Meal } from "../caltrack/types";
@@ -43,14 +44,21 @@ function MealForm({ existing, editing, addMeal, updateMeal, isSaving }: {
   updateMeal: (meal: Meal) => Promise<void>;
   isSaving: boolean;
 }) {
+  const { meals } = useCalTrack();
+  const [activeIngredient, setActiveIngredient] = useState<string | null>(null);
+  const [nutritionDrafts, setNutritionDrafts] = useState<Record<string, string>>({});
   const [name, setName] = useState(existing?.name ?? "");
   const [servings, setServings] = useState(String(existing?.servings ?? 1));
+  const [nutritionComplete, setNutritionComplete] = useState(existing?.nutritionComplete !== false);
   
   const [ingredients, setIngredients] = useState<Ingredient[]>(existing?.ingredients ?? [blank()]);
   const [saving, setSaving] = useState(false);
   const total = useMemo(() => sumNutrition(ingredients), [ingredients]);
 
   const update = (id: string, key: keyof Ingredient, value: string) => {
+    if (key !== 'name' && key !== 'amount') {
+      setNutritionDrafts((drafts) => ({ ...drafts, [`${id}:${key}`]: value }));
+    }
     setIngredients((items) =>
       items.map((item) => {
         if (item.id !== id) {
@@ -86,6 +94,8 @@ function MealForm({ existing, editing, addMeal, updateMeal, isSaving }: {
         id: existing?.id ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`,
         name: name.trim(),
         servings: Number(servings),
+        category: existing?.category,
+        ...(nutritionComplete ? {} : { nutritionComplete: false }),
         ingredients,
         createdAt: existing?.createdAt ?? new Date().toISOString(),
       });
@@ -99,7 +109,7 @@ function MealForm({ existing, editing, addMeal, updateMeal, isSaving }: {
 
   return (
     <View style={styles.screen}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
         <Pressable onPress={() => router.back()}>
           <Text style={styles.back}>‹ Back</Text>
         </Pressable>
@@ -108,6 +118,13 @@ function MealForm({ existing, editing, addMeal, updateMeal, isSaving }: {
         <Text style={styles.subtitle}>
           Build a recipe and know exactly what is on your plate.
         </Text>
+        {(existing?.nutritionComplete === false || !nutritionComplete) && <View style={{ marginTop: 16, gap: 8 }}>
+          <Text>Some nutrition came from older CalTrack records. Calories are preserved; other nutrients were not stored. Enter the missing values and confirm the recipe's serving yield.</Text>
+          <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: nutritionComplete }}
+            style={{ minHeight: 44, justifyContent: 'center' }} onPress={() => setNutritionComplete(!nutritionComplete)}>
+            <Text style={styles.addText}>{nutritionComplete ? '[x]' : '[ ]'} I have entered the missing nutritional values</Text>
+          </Pressable>
+        </View>}
 
         <Text style={styles.label}>Meal name</Text>
         <TextInput
@@ -142,7 +159,8 @@ function MealForm({ existing, editing, addMeal, updateMeal, isSaving }: {
               <TextInput
                 placeholder="Ingredient name"
                 value={item.name}
-                onChangeText={(value) => update(item.id, "name", value)}
+                onFocus={() => setActiveIngredient(item.id)}
+                onChangeText={(value) => { setActiveIngredient(item.id); update(item.id, "name", value); }}
                 style={styles.nameInput}
               />
               <TextInput
@@ -153,6 +171,19 @@ function MealForm({ existing, editing, addMeal, updateMeal, isSaving }: {
               />
             </View>
 
+            {activeIngredient === item.id && item.name.trim().length > 0 && <View>
+              <Text style={styles.fieldLabel}>Saved ingredients: nutrition is for the displayed amount</Text>
+              {ingredientMatches(meals, item.name).length === 0 && <Text>No saved match. Enter this ingredient manually.</Text>}
+              {ingredientMatches(meals, item.name).map((match, matchIndex) => <Pressable key={matchIndex}
+                style={{ minHeight: 44, paddingVertical: 10 }} onPress={() => {
+                  if (meals.some((meal) => meal.nutritionComplete === false && meal.ingredients.includes(match))) setNutritionComplete(false);
+                  setIngredients((items) => items.map((current) => current.id === item.id ? { ...match, id: current.id } : current));
+                  setNutritionDrafts((drafts) => Object.fromEntries(Object.entries(drafts).filter(([key]) => !key.startsWith(`${item.id}:`))));
+                  setActiveIngredient(null);
+                }}>
+                <Text style={styles.addText}>{match.name} · {match.amount || 'amount unspecified'} · {match.calories} kcal</Text>
+              </Pressable>)}
+            </View>}
             {ingredients.length > 1 && (
               <Pressable onPress={() => setIngredients((items) => items.filter((ingredient) => ingredient.id !== item.id))}>
                 <Text style={styles.addText}>Remove ingredient</Text>
@@ -164,7 +195,7 @@ function MealForm({ existing, editing, addMeal, updateMeal, isSaving }: {
                 <View style={styles.field} key={key}>
                   <Text style={styles.fieldLabel}>{label}</Text>
                   <TextInput
-                    value={String(item[key])}
+                    value={nutritionDrafts[`${item.id}:${key}`] ?? String(item[key])}
                     onChangeText={(value) => update(item.id, key, value)}
                     keyboardType="decimal-pad"
                     style={styles.smallInput}
@@ -272,13 +303,14 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 12,
   },
-  field: { width: "23%" },
-  fieldLabel: { color: "#888", fontSize: 9, marginBottom: 3 },
+  field: { width: "46%" },
+  fieldLabel: { color: "#666", fontSize: 12, marginBottom: 3 },
   smallInput: {
+    minHeight: 44,
     backgroundColor: "#f5f5f5",
     borderRadius: 7,
     padding: 7,
-    fontSize: 12,
+    fontSize: 14,
   },
   add: {
     borderWidth: 1,

@@ -3,10 +3,11 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 const tabs = [
   { label: "Home", icon: "⌂", path: "/" },
+  { label: "Calendar", icon: "\u25a6", path: "/calendar" },
   { label: "Recipes", icon: "▣", path: "/recipes" },
   { label: "Create", icon: "+", path: "/create" },
   { label: "Goals", icon: "◎", path: "/goals" },
-  { label: "Profile", icon: "( ͡° ͜ʖ ͡°)", path: "/profile"}
+  { label: "Profile", icon: "\u25cb", path: "/profile"}
 ];
 
 export function AppNav() {
@@ -20,8 +21,10 @@ export function AppNav() {
         return (
           <Pressable
             key={tab.path}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: isActive }}
             style={styles.tab}
-            onPress={() => router.push(tab.path as never)}
+            onPress={() => { if (!isActive) router.navigate(tab.path as never); }}
           >
             <Text style={[styles.icon, isActive && styles.active]}>
               {tab.icon}
@@ -45,7 +48,7 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 18,
   },
-  tab: { flex: 1, alignItems: "center", gap: 3 },
+  tab: { minHeight: 44, flex: 1, alignItems: "center", gap: 3 },
   icon: { color: "#757575", fontSize: 23, lineHeight: 24 },
   label: { color: "#757575", fontSize: 11, fontWeight: "600" },
   active: { color: "#00a900" },
