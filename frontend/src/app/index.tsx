@@ -7,7 +7,7 @@ export default function Home() {
     <ScrollView contentContainerStyle={styles.content}>
       <Text style={[styles.title, { fontSize: 30 }]}>CalTrack</Text>
       <Text style={styles.muted}>Your daily meal diary</Text>
-      <DailyDiary />
+      <DailyDiary showRecipeSuggestions={false} />
     </ScrollView>
     <AppNav />
   </View>

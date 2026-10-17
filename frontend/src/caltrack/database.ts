@@ -1,4 +1,6 @@
 import type { SQLiteDatabase } from "expo-sqlite";
+import { initialSampleRecipes, filipinoSampleRecipes } from './sampleRecipes';
+import type { Meal } from './types';
 
 // Only this small driver contract depends on SQLite. Repositories own domain data.
 export type DatabaseConnection = Pick<SQLiteDatabase,
@@ -129,6 +131,34 @@ async function migrateV3(db: DatabaseConnection, importedLegacyRecipes: boolean)
   await db.execAsync('PRAGMA user_version = 3;');
 }
 
+async function migrateV4(db: DatabaseConnection) {
+  if (!(await columns(db, 'meals')).has('instructions')) {
+    await db.execAsync("ALTER TABLE meals ADD COLUMN instructions TEXT NOT NULL DEFAULT '';");
+  }
+  // A persistent marker also prevents reseeding after an unversioned DB repair.
+  await db.execAsync('CREATE TABLE IF NOT EXISTS app_metadata (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL);');
+  await seedRecipes(db, 'sample_recipes_v1', initialSampleRecipes);
+  await db.execAsync('PRAGMA user_version = 4;');
+}
+
+async function seedRecipes(db: DatabaseConnection, batch: string, recipes: Meal[]) {
+  const seeded = await db.getFirstAsync('SELECT value FROM app_metadata WHERE key = ?', batch);
+  if (!seeded) {
+    for (const meal of recipes) {
+      const existing = await db.getFirstAsync('SELECT id FROM meals WHERE id = ?', meal.id);
+      if (existing) continue;
+      await db.runAsync('INSERT INTO meals (id, name, category, servings, created_at, instructions) VALUES (?, ?, ?, ?, ?, ?)',
+        meal.id, meal.name, meal.category ?? 'uncategorized', meal.servings, meal.createdAt, meal.instructions ?? '');
+      for (const [position, item] of meal.ingredients.entries()) {
+        await db.runAsync(`INSERT INTO ingredients (meal_id, id, position, name, amount, calories, protein, carbs, fat, fiber, sugar, sodium)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          meal.id, item.id, position, item.name, item.amount, item.calories, item.protein, item.carbs, item.fat, item.fiber, item.sugar, item.sodium);
+      }
+    }
+    await db.runAsync("INSERT INTO app_metadata (key, value) VALUES (?, '1')", batch);
+  }
+}
+
 export function createDatabaseService(open: () => Promise<DatabaseConnection>) {
   let connection: Promise<DatabaseConnection> | undefined;
   let queue: Promise<unknown> = Promise.resolve();
@@ -140,7 +170,7 @@ export function createDatabaseService(open: () => Promise<DatabaseConnection>) {
       await db.withTransactionAsync(async () => {
         const version = await db.getFirstAsync<{ user_version: number }>("PRAGMA user_version");
         let currentVersion = version?.user_version ?? 0;
-        if (currentVersion > 3) {
+        if (currentVersion > 4) {
           throw new Error("This database requires a newer version of CalTrack.");
         }
         // A previous branch also used version 2 for a different recipe-only
@@ -155,6 +185,9 @@ export function createDatabaseService(open: () => Promise<DatabaseConnection>) {
         }
         if (currentVersion < 2) await migrateV2(db);
         if (currentVersion < 3) await migrateV3(db, legacyRecipes);
+        if (currentVersion < 4) await migrateV4(db);
+        // Content updates also apply to installations already on schema v4.
+        await seedRecipes(db, 'filipino_recipes_v1', filipinoSampleRecipes);
       });
       return db;
     } catch (error) {

@@ -22,6 +22,7 @@ export type Meal = {
   category?: MealCategory;
   servings: number;
   ingredients: Ingredient[];
+  instructions?: string;
   createdAt: string;
   nutritionComplete?: boolean;
 };

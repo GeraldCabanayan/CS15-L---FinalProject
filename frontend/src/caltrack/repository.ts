@@ -56,7 +56,7 @@ export function createSQLiteRepository(database: DatabaseService): CalTrackRepos
   return {
     read: (date) => database.transaction(async (db) => {
       validateDate(date);
-      const rows = await db.getAllAsync<{ id: string; name: string; category: MealCategory; servings: number; created_at: string; nutrition_complete: number }>(
+      const rows = await db.getAllAsync<{ id: string; name: string; category: MealCategory; servings: number; created_at: string; nutrition_complete: number; instructions: string }>(
         "SELECT * FROM meals ORDER BY created_at DESC, id DESC",
       );
       const ingredients = await db.getAllAsync<Ingredient & { meal_id: string; position: number }>(
@@ -68,8 +68,9 @@ export function createSQLiteRepository(database: DatabaseService): CalTrackRepos
         list.push(ingredient);
         byMeal.set(meal_id, list);
       }
-      const meals = rows.map(({ created_at, nutrition_complete, ...row }) => ({
+      const meals = rows.map(({ created_at, nutrition_complete, instructions, ...row }) => ({
         ...row, createdAt: created_at, ingredients: byMeal.get(row.id) ?? [],
+        ...(instructions ? { instructions } : {}),
         ...(nutrition_complete === 0 ? { nutritionComplete: false } : {}),
       }));
       const loggedMeals = await db.getAllAsync<LoggedMeal>(
@@ -83,16 +84,16 @@ export function createSQLiteRepository(database: DatabaseService): CalTrackRepos
     async createMeal(meal) {
       validateMeal(meal);
       await database.transaction(async (db) => {
-        await db.runAsync("INSERT INTO meals (id, name, category, servings, created_at, nutrition_complete) VALUES (?, ?, ?, ?, ?, ?)",
-          meal.id, meal.name.trim(), meal.category ?? "uncategorized", meal.servings, meal.createdAt, meal.nutritionComplete === false ? 0 : 1);
+        await db.runAsync("INSERT INTO meals (id, name, category, servings, created_at, nutrition_complete, instructions) VALUES (?, ?, ?, ?, ?, ?, ?)",
+          meal.id, meal.name.trim(), meal.category ?? "uncategorized", meal.servings, meal.createdAt, meal.nutritionComplete === false ? 0 : 1, meal.instructions?.trim() ?? "");
         await insertIngredients(db, meal);
       });
     },
     async updateMeal(meal) {
       validateMeal(meal);
       await database.transaction(async (db) => {
-        const result = await db.runAsync("UPDATE meals SET name = ?, category = ?, servings = ?, nutrition_complete = ? WHERE id = ?",
-          meal.name.trim(), meal.category ?? "uncategorized", meal.servings, meal.nutritionComplete === false ? 0 : 1, meal.id);
+        const result = await db.runAsync("UPDATE meals SET name = ?, category = ?, servings = ?, nutrition_complete = ?, instructions = ? WHERE id = ?",
+          meal.name.trim(), meal.category ?? "uncategorized", meal.servings, meal.nutritionComplete === false ? 0 : 1, meal.instructions?.trim() ?? "", meal.id);
         if (!result.changes) throw new Error("This recipe no longer exists.");
         await db.runAsync("DELETE FROM ingredients WHERE meal_id = ?", meal.id);
         await insertIngredients(db, meal);

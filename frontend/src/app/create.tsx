@@ -2,11 +2,11 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
 import { Alert, ScrollView, StyleSheet, Text, TextInput, View, } from "react-native";
-import { ingredientMatches } from "../caltrack/suggestions";
+import { ingredientMatches, nameMatches } from "../caltrack/suggestions";
 import { AppNav } from "../components/AppNav";
 import { AnimatedPressable } from "../components/AnimatedPressable";
 import { errorMessage, useCalTrack } from "../caltrack/store";
-import { emptyNutrition, sumNutrition, type Ingredient, type Nutrition, type Meal } from "../caltrack/types";
+import { emptyNutrition, mealCategories, sumNutrition, type Ingredient, type Meal, type MealCategory } from "../caltrack/types";
 
 
 
@@ -49,12 +49,36 @@ function MealForm({ existing, editing, addMeal, updateMeal, isSaving }: {
   const [activeIngredient, setActiveIngredient] = useState<string | null>(null);
   const [nutritionDrafts, setNutritionDrafts] = useState<Record<string, string>>({});
   const [name, setName] = useState(existing?.name ?? "");
+  const [showRecipeSuggestions, setShowRecipeSuggestions] = useState(!existing?.name);
+  const [recipeQuery, setRecipeQuery] = useState('');
+  const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(existing?.id ?? null);
+  const [category, setCategory] = useState<MealCategory>(existing?.category ?? 'uncategorized');
+  const [instructions, setInstructions] = useState(existing?.instructions ?? "");
   const [servings, setServings] = useState(String(existing?.servings ?? 1));
   const [nutritionComplete, setNutritionComplete] = useState(existing?.nutritionComplete !== false);
   
-  const [ingredients, setIngredients] = useState<Ingredient[]>(existing?.ingredients ?? [blank()]);
+  const [ingredients, setIngredients] = useState<Ingredient[]>(() => existing?.ingredients.map(item => ({ ...item })) ?? [blank()]);
   const [saving, setSaving] = useState(false);
   const total = useMemo(() => sumNutrition(ingredients), [ingredients]);
+  const recipeOptions = useMemo(() => recipeQuery.trim()
+    ? nameMatches(meals, recipeQuery)
+    : [...meals].sort((a, b) => a.name.localeCompare(b.name)), [meals, recipeQuery]);
+
+  const selectRecipe = (recipe: Meal) => {
+    // Copy editable values only. Saving keeps the current destination's identity;
+    // Create makes a new recipe and never modifies the selected source recipe.
+    setName(recipe.name);
+    setSelectedRecipeId(recipe.id);
+    setRecipeQuery('');
+    setServings(String(recipe.servings));
+    setCategory(recipe.category ?? 'uncategorized');
+    setInstructions(recipe.instructions ?? '');
+    setIngredients(recipe.ingredients.map(item => ({ ...item })));
+    setNutritionComplete(recipe.nutritionComplete !== false);
+    setNutritionDrafts({});
+    setActiveIngredient(null);
+    setShowRecipeSuggestions(false);
+  };
 
   const update = (id: string, key: keyof Ingredient, value: string) => {
     if (key !== 'name' && key !== 'amount') {
@@ -95,9 +119,10 @@ function MealForm({ existing, editing, addMeal, updateMeal, isSaving }: {
         id: existing?.id ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`,
         name: name.trim(),
         servings: Number(servings),
-        category: existing?.category,
+        category,
         ...(nutritionComplete ? {} : { nutritionComplete: false }),
         ingredients,
+        instructions: instructions.trim(),
         createdAt: existing?.createdAt ?? new Date().toISOString(),
       });
       router.replace("/recipes");
@@ -119,7 +144,7 @@ function MealForm({ existing, editing, addMeal, updateMeal, isSaving }: {
         <Text style={styles.subtitle}>
           Build a recipe and know exactly what is on your plate.
         </Text>
-        {(existing?.nutritionComplete === false || !nutritionComplete) && <View style={{ marginTop: 16, gap: 8 }}>
+        {!nutritionComplete && <View style={{ marginTop: 16, gap: 8 }}>
           <Text>Some nutrition came from older CalTrack records. Calories are preserved; other nutrients were not stored. Enter the missing values and confirm the recipe's serving yield.</Text>
           <AnimatedPressable accessibilityRole="checkbox" accessibilityState={{ checked: nutritionComplete }}
             style={{ minHeight: 44, justifyContent: 'center' }} onPress={() => setNutritionComplete(!nutritionComplete)}>
@@ -128,23 +153,86 @@ function MealForm({ existing, editing, addMeal, updateMeal, isSaving }: {
         </View>}
 
         <Text style={styles.label}>Meal name</Text>
+        <View style={[styles.recipeSelect, showRecipeSuggestions && styles.recipeSelectOpen]}>
+        <View style={[styles.recipeSelectField, showRecipeSuggestions && styles.recipeSelectFieldOpen]}>
         <TextInput
+          accessibilityLabel="Meal name"
           placeholder="e.g. Sunday pasta"
           placeholderTextColor="rgba(2, 2, 2, 0.5)"
-          value={name}
-          onChangeText={setName}
-          style={styles.input}
+          value={name ?? ""}
+          onFocus={() => { setShowRecipeSuggestions(true); setActiveIngredient(null); }}
+          onChangeText={(value) => {
+            setName(value);
+            setRecipeQuery(value);
+            setSelectedRecipeId(null);
+            setShowRecipeSuggestions(true);
+          }}
+          onKeyPress={(event) => { if (event.nativeEvent.key === 'Escape') setShowRecipeSuggestions(false); }}
+          accessibilityState={{ expanded: showRecipeSuggestions }}
+          aria-expanded={showRecipeSuggestions}
+          autoComplete="off"
+          autoCorrect={false}
+          spellCheck={false}
+          style={styles.recipeSelectInput}
         />
+        <AnimatedPressable accessibilityRole="button"
+          accessibilityLabel={showRecipeSuggestions ? 'Hide recipe suggestions' : 'Show recipe suggestions'}
+          accessibilityState={{ expanded: showRecipeSuggestions }}
+          aria-expanded={showRecipeSuggestions}
+          pressedScale={1}
+          style={styles.suggestionToggle} onPress={() => {
+            setRecipeQuery('');
+            setShowRecipeSuggestions(!showRecipeSuggestions);
+          }}>
+          <Text style={styles.selectChevron}>{showRecipeSuggestions ? '▴' : '▾'}</Text>
+        </AnimatedPressable>
+        </View>
+        {showRecipeSuggestions && <View style={styles.suggestions}>
+          <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled" style={styles.suggestionList}>
+            <AnimatedPressable accessibilityRole="button" accessibilityLabel="Keep entering a custom meal"
+              pressedScale={1} style={[styles.suggestionOption, !selectedRecipeId && styles.suggestionSelected]}
+              onPress={() => setShowRecipeSuggestions(false)}>
+              <Text style={styles.selectionCheck}>{!selectedRecipeId ? '✓' : ''}</Text>
+              <Text style={[styles.suggestionText, !selectedRecipeId && styles.suggestionSelectedText]}>Select a recipe</Text>
+            </AnimatedPressable>
+            {!recipeOptions.length && <Text style={styles.suggestionHint}>
+              {meals.length ? 'No matching recipes. Keep typing to create your own meal.' : 'No saved recipes yet. Enter your meal details below.'}
+            </Text>}
+            {recipeOptions.map(recipe => <AnimatedPressable key={recipe.id}
+              accessibilityRole="button" accessibilityLabel={`Use recipe ${recipe.name}`}
+              accessibilityState={{ selected: selectedRecipeId === recipe.id }}
+              aria-pressed={selectedRecipeId === recipe.id}
+              pressedScale={1}
+              style={[styles.suggestionOption, selectedRecipeId === recipe.id && styles.suggestionSelected]}
+              onPress={() => selectRecipe(recipe)}>
+              <Text style={styles.selectionCheck}>{selectedRecipeId === recipe.id ? '✓' : ''}</Text>
+              <Text style={[styles.suggestionText, selectedRecipeId === recipe.id && styles.suggestionSelectedText]}>{recipe.name}</Text>
+            </AnimatedPressable>)}
+          </ScrollView>
+        </View>}
+        </View>
 
         <Text style={styles.label}>Servings</Text>
         <TextInput
           placeholder="1"
           placeholderTextColor="rgba(2, 2, 2, 0.5)"
           value={servings}
+          onFocus={() => setShowRecipeSuggestions(false)}
           onChangeText={setServings}
           keyboardType="number-pad"
           style={styles.input}
         />
+
+        <Text style={styles.label}>Meal category</Text>
+        <View accessibilityRole="radiogroup" accessibilityLabel="Meal category" style={styles.categoryList}>
+          {mealCategories.map(value => <AnimatedPressable key={value} accessibilityRole="radio"
+            accessibilityLabel={`Meal category ${value}`} accessibilityState={{ checked: category === value }}
+            aria-checked={category === value}
+            style={[styles.category, category === value && styles.categorySelected]}
+            onPress={() => { setCategory(value); setShowRecipeSuggestions(false); }}>
+            <Text style={[styles.categoryText, category === value && styles.categoryTextSelected]}>{value}</Text>
+          </AnimatedPressable>)}
+        </View>
 
       
 
@@ -160,13 +248,14 @@ function MealForm({ existing, editing, addMeal, updateMeal, isSaving }: {
               <TextInput
                 placeholder="Ingredient name"
                 value={item.name}
-                onFocus={() => setActiveIngredient(item.id)}
+                onFocus={() => { setActiveIngredient(item.id); setShowRecipeSuggestions(false); }}
                 onChangeText={(value) => { setActiveIngredient(item.id); update(item.id, "name", value); }}
                 style={styles.nameInput}
               />
               <TextInput
                 placeholder="Amount"
                 value={item.amount}
+                onFocus={() => { setActiveIngredient(null); setShowRecipeSuggestions(false); }}
                 onChangeText={(value) => update(item.id, "amount", value)}
                 style={styles.amountInput}
               />
@@ -197,6 +286,7 @@ function MealForm({ existing, editing, addMeal, updateMeal, isSaving }: {
                   <Text style={styles.fieldLabel}>{label}</Text>
                   <TextInput
                     value={nutritionDrafts[`${item.id}:${key}`] ?? String(item[key])}
+                    onFocus={() => { setActiveIngredient(null); setShowRecipeSuggestions(false); }}
                     onChangeText={(value) => update(item.id, key, value)}
                     keyboardType="decimal-pad"
                     style={styles.smallInput}
@@ -213,6 +303,19 @@ function MealForm({ existing, editing, addMeal, updateMeal, isSaving }: {
         >
           <Text style={styles.addText}>＋ Add ingredient</Text>
         </AnimatedPressable>
+
+        <Text style={styles.label}>Instructions</Text>
+        <TextInput
+          accessibilityLabel="Recipe instructions"
+          placeholder="Describe how to prepare this recipe, one step per line"
+          placeholderTextColor="rgba(2, 2, 2, 0.5)"
+          value={instructions}
+          onFocus={() => { setActiveIngredient(null); setShowRecipeSuggestions(false); }}
+          onChangeText={setInstructions}
+          multiline
+          textAlignVertical="top"
+          style={[styles.input, { minHeight: 140 }]}
+        />
 
         <View style={styles.summary}>
           <Text style={styles.summaryTitle}>Meal total</Text>
@@ -260,6 +363,21 @@ const styles = StyleSheet.create({
     padding: 14,
     fontSize: 16,
   },
+  recipeSelect: { position: 'relative', zIndex: 1 },
+  recipeSelectOpen: { zIndex: 20 },
+  recipeSelectField: { flexDirection: 'row', alignItems: 'center', minHeight: 50, backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd', borderRadius: 12, overflow: 'hidden' },
+  recipeSelectFieldOpen: { borderColor: '#00a900', boxShadow: '0 0 0 3px rgba(0, 169, 0, 0.10)' },
+  recipeSelectInput: { flex: 1, minWidth: 0, padding: 14, fontSize: 16, color: '#171717', backgroundColor: '#fff' },
+  suggestionToggle: { width: 46, alignSelf: 'stretch', minHeight: 48, justifyContent: 'center', alignItems: 'center', borderLeftWidth: 1, borderLeftColor: '#eee' },
+  selectChevron: { color: '#008d00', fontSize: 18 },
+  suggestions: { position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 6, borderWidth: 1, borderColor: '#d4e8d4', borderRadius: 12, backgroundColor: '#fff', overflow: 'hidden', boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)', elevation: 6 },
+  suggestionHint: { color: '#666', padding: 12, lineHeight: 20 },
+  suggestionList: { maxHeight: 264, paddingVertical: 4 },
+  suggestionOption: { minHeight: 44, paddingVertical: 10, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  suggestionText: { flex: 1, color: '#333', fontSize: 15, lineHeight: 22 },
+  suggestionSelected: { backgroundColor: '#dff6df' },
+  suggestionSelectedText: { color: '#007d00', fontWeight: '700' },
+  selectionCheck: { width: 18, color: '#007d00', fontWeight: '800', fontSize: 16 },
   categoryList: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   category: {
     borderWidth: 1,

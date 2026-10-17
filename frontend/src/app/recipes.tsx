@@ -17,6 +17,7 @@ import { AppNav } from "../components/AppNav";
 import { AnimatedPressable } from "../components/AnimatedPressable";
 import { errorMessage, useCalTrack } from "../caltrack/store";
 import { LogRecipe } from "../components/DailyDiary";
+import { RecipeDetails } from "../components/RecipeDetails";
 import { nameMatches } from "../caltrack/suggestions";
 import { perServing } from "../caltrack/types";
 
@@ -101,6 +102,7 @@ export default function Recipes() {
                 <Stat label="Fat" value={`${Math.round(nutrition.fat)} g`} />
               </View>
 
+              <RecipeDetails meal={meal} collapsible />
               <View style={styles.logCategoryList}>
                 <AnimatedPressable disabled={isSaving} style={styles.logCategory}
                   onPress={() => router.push({ pathname: "/create", params: { id: meal.id } })}>
