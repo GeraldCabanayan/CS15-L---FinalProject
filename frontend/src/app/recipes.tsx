@@ -43,8 +43,15 @@ export default function Recipes() {
         </Link>
 
         <DateHeading />
-        <TextInput accessibilityLabel="Search saved recipes" placeholder="Search saved recipes" value={query} onChangeText={setQuery} style={{ minHeight: 48, padding: 12, backgroundColor: "#fff", marginTop: 16, borderRadius: 12 }} />
-        {query.trim() && !filtered.length && <Text>No matching saved recipes. Try another name or create a recipe.</Text>}
+        <TextInput accessibilityLabel="Search saved recipes" placeholder="Search saved recipes" placeholderTextColor="rgba(0, 0, 0, 0.5)" value={query} 
+        onChangeText={setQuery} style={{ 
+          minHeight: 48,
+          padding: 12,
+          backgroundColor: "#fff",
+          marginTop: 16,
+          borderRadius: 12 
+          }} />
+        {query.trim().length > 0 && !filtered.length && <Text>No matching saved recipes. Try another name or create a recipe.</Text>}
         {meals.length === 0 && <Text style={styles.subtitle}>No saved recipes yet. Create your first recipe above.</Text>}
         {filtered.map((meal) => {
           const nutrition = perServing(meal);
