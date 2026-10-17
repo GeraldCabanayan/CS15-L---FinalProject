@@ -8,7 +8,7 @@ export function localDate(date = new Date()): string {
 export type CalTrackSnapshot = { meals: Meal[]; loggedMeals: LoggedMeal[]; goal: UserGoal; date: string; recordedDates: string[] };
 export interface CalTrackRepository {
   read(date: string): Promise<CalTrackSnapshot>;
-  createMeal(meal: Meal): Promise<void>;
+  createMeal(meal: Meal, scheduledDate?: string): Promise<void>;
   updateMeal(meal: Meal): Promise<void>;
   deleteMeal(id: string): Promise<void>;
   logMeal(id: string, category: MealCategory, date: string, quantity?: number): Promise<void>;
@@ -81,12 +81,18 @@ export function createSQLiteRepository(database: DatabaseService): CalTrackRepos
       const dates = await db.getAllAsync<{ date: string }>("SELECT DISTINCT log_date AS date FROM meal_logs ORDER BY log_date");
       return { meals, loggedMeals, goal, date, recordedDates: dates.map((row) => row.date) };
     }),
-    async createMeal(meal) {
+    async createMeal(meal, scheduledDate) {
       validateMeal(meal);
+      if (scheduledDate !== undefined) validateDate(scheduledDate);
       await database.transaction(async (db) => {
         await db.runAsync("INSERT INTO meals (id, name, category, servings, created_at, nutrition_complete, instructions) VALUES (?, ?, ?, ?, ?, ?, ?)",
           meal.id, meal.name.trim(), meal.category ?? "uncategorized", meal.servings, meal.createdAt, meal.nutritionComplete === false ? 0 : 1, meal.instructions?.trim() ?? "");
         await insertIngredients(db, meal);
+        // A scheduled meal and its recipe must either both save or both roll back.
+        if (scheduledDate !== undefined) {
+          await db.runAsync("INSERT INTO meal_logs (meal_id, log_date, category, quantity) VALUES (?, ?, ?, ?)",
+            meal.id, scheduledDate, meal.category ?? "uncategorized", 1);
+        }
       });
     },
     async updateMeal(meal) {
