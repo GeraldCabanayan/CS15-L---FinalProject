@@ -6,14 +6,14 @@ export type DatabaseConnection = Pick<SQLiteDatabase,
 >;
 
 const schemaV1 = `
-CREATE TABLE meals (
+CREATE TABLE IF NOT EXISTS meals (
   id TEXT PRIMARY KEY NOT NULL,
   name TEXT NOT NULL CHECK (length(trim(name)) > 0),
   category TEXT NOT NULL CHECK (category IN ('uncategorized','breakfast','lunch','dinner')),
   servings REAL NOT NULL CHECK (servings > 0),
   created_at TEXT NOT NULL
 );
-CREATE TABLE ingredients (
+CREATE TABLE IF NOT EXISTS ingredients (
   meal_id TEXT NOT NULL REFERENCES meals(id) ON DELETE CASCADE,
   id TEXT NOT NULL,
   position INTEGER NOT NULL,
@@ -28,21 +28,106 @@ CREATE TABLE ingredients (
   sodium REAL NOT NULL CHECK (sodium >= 0),
   PRIMARY KEY (meal_id, id)
 );
-CREATE TABLE meal_logs (
+CREATE TABLE IF NOT EXISTS meal_logs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   meal_id TEXT NOT NULL REFERENCES meals(id) ON DELETE CASCADE,
   log_date TEXT NOT NULL,
   category TEXT NOT NULL CHECK (category IN ('uncategorized','breakfast','lunch','dinner')),
   UNIQUE (log_date, meal_id)
 );
-CREATE TABLE user_goals (
+CREATE TABLE IF NOT EXISTS user_goals (
   id INTEGER PRIMARY KEY CHECK (id = 1),
   calorie_target REAL NOT NULL CHECK (calorie_target > 0),
   goal TEXT NOT NULL CHECK (goal IN ('lose','maintain','gain'))
 );
-INSERT INTO user_goals (id, calorie_target, goal) VALUES (1, 2300, 'maintain');
+INSERT INTO user_goals (id, calorie_target, goal) VALUES (1, 2300, 'maintain') ON CONFLICT (id) DO NOTHING;
 PRAGMA user_version = 1;
 `;
+
+const schemaV2 = `
+CREATE TABLE meal_logs_v2 (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  meal_id TEXT NOT NULL REFERENCES meals(id) ON DELETE CASCADE,
+  log_date TEXT NOT NULL,
+  category TEXT NOT NULL CHECK (category IN ('uncategorized','breakfast','lunch','dinner')),
+  quantity REAL NOT NULL DEFAULT 1 CHECK (quantity > 0),
+  UNIQUE (log_date, meal_id, category)
+);
+INSERT INTO meal_logs_v2 (id, meal_id, log_date, category) SELECT id, meal_id, log_date, category FROM meal_logs;
+DROP TABLE meal_logs;
+ALTER TABLE meal_logs_v2 RENAME TO meal_logs;
+CREATE INDEX IF NOT EXISTS meal_logs_date ON meal_logs(log_date);
+`;
+
+async function columns(db: DatabaseConnection, table: string) {
+  // Table names are internal constants, never user input.
+  return new Set((await db.getAllAsync<{ name: string }>(`PRAGMA table_info(${table})`)).map((column) => column.name));
+}
+
+async function validateExistingSchema(db: DatabaseConnection) {
+  const required = {
+    meals: ['id', 'name', 'category', 'servings', 'created_at'],
+    ingredients: ['meal_id', 'id', 'position', 'name', 'amount', 'calories', 'protein', 'carbs', 'fat', 'fiber', 'sugar', 'sodium'],
+    meal_logs: ['id', 'meal_id', 'log_date', 'category'],
+    user_goals: ['id', 'calorie_target', 'goal'],
+  };
+  for (const [table, names] of Object.entries(required)) {
+    const existing = await columns(db, table);
+    if (existing.size && names.some((name) => !existing.has(name))) {
+      throw new Error(`The existing ${table} table uses an older, unsupported layout. Your data has been kept. A data migration is needed before it can be opened.`);
+    }
+  }
+}
+
+async function migrateV2(db: DatabaseConnection) {
+  const logColumns = await columns(db, 'meal_logs');
+  // An unversioned database may already have quantities. Retain them on repair.
+  const migration = logColumns.has('quantity') ? schemaV2.replace(
+    'INSERT INTO meal_logs_v2 (id, meal_id, log_date, category) SELECT id, meal_id, log_date, category FROM meal_logs;',
+    'INSERT INTO meal_logs_v2 (id, meal_id, log_date, category, quantity) SELECT id, meal_id, log_date, category, quantity FROM meal_logs;',
+  ) : schemaV2;
+  await db.execAsync(migration);
+  const goalColumns = await columns(db, 'user_goals');
+  for (const name of ['protein_target', 'carbs_target', 'fat_target']) {
+    if (!goalColumns.has(name)) {
+      await db.execAsync(`ALTER TABLE user_goals ADD COLUMN ${name} REAL CHECK (${name} > 0)`);
+    }
+  }
+  await db.execAsync('PRAGMA user_version = 2;');
+}
+
+async function hasLegacyRecipeSchema(db: DatabaseConnection) {
+  const recipes = await columns(db, 'recipes');
+  const ingredients = await columns(db, 'ingredients');
+  return ['id', 'title', 'date_added'].every((name) => recipes.has(name)) &&
+    ['recipe_id', 'id', 'position', 'ingredient_name', 'calories', 'quantity'].every((name) => ingredients.has(name)) &&
+    !ingredients.has('meal_id');
+}
+
+async function migrateLegacyRecipes(db: DatabaseConnection) {
+  // Keep the original tables as an archive. Their foreign keys still point to
+  // recipes, so deleting a new meal cannot delete the source records.
+  await db.execAsync('ALTER TABLE ingredients RENAME TO legacy_recipe_ingredients;');
+  await validateExistingSchema(db);
+  await db.execAsync(schemaV1);
+  await db.execAsync(`
+    INSERT INTO meals (id, name, category, servings, created_at)
+      SELECT id, title, 'uncategorized', 1, date_added FROM recipes;
+    INSERT INTO ingredients (meal_id, id, position, name, amount, calories, protein, carbs, fat, fiber, sugar, sodium)
+      SELECT recipe_id, id, position, ingredient_name, quantity, calories, 0, 0, 0, 0, 0, 0
+      FROM legacy_recipe_ingredients;
+  `);
+}
+
+async function migrateV3(db: DatabaseConnection, importedLegacyRecipes: boolean) {
+  if (!(await columns(db, 'meals')).has('nutrition_complete')) {
+    await db.execAsync('ALTER TABLE meals ADD COLUMN nutrition_complete INTEGER NOT NULL DEFAULT 1 CHECK (nutrition_complete IN (0, 1));');
+  }
+  if (importedLegacyRecipes) {
+    await db.execAsync('UPDATE meals SET nutrition_complete = 0 WHERE id IN (SELECT id FROM recipes);');
+  }
+  await db.execAsync('PRAGMA user_version = 3;');
+}
 
 export function createDatabaseService(open: () => Promise<DatabaseConnection>) {
   let connection: Promise<DatabaseConnection> | undefined;
@@ -54,10 +139,22 @@ export function createDatabaseService(open: () => Promise<DatabaseConnection>) {
       await db.execAsync("PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;");
       await db.withTransactionAsync(async () => {
         const version = await db.getFirstAsync<{ user_version: number }>("PRAGMA user_version");
-        if ((version?.user_version ?? 0) > 1) {
+        let currentVersion = version?.user_version ?? 0;
+        if (currentVersion > 3) {
           throw new Error("This database requires a newer version of CalTrack.");
         }
-        if (!version?.user_version) await db.execAsync(schemaV1);
+        // A previous branch also used version 2 for a different recipe-only
+        // schema. Detect its actual columns before applying numbered upgrades.
+        const legacyRecipes = currentVersion < 3 && await hasLegacyRecipeSchema(db);
+        if (legacyRecipes) {
+          await migrateLegacyRecipes(db);
+          currentVersion = 1;
+        } else if (!currentVersion) {
+          await validateExistingSchema(db);
+          await db.execAsync(schemaV1);
+        }
+        if (currentVersion < 2) await migrateV2(db);
+        if (currentVersion < 3) await migrateV3(db, legacyRecipes);
       });
       return db;
     } catch (error) {

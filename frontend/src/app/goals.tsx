@@ -1,15 +1,19 @@
 import { useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { DateHeading, DailyProgress } from "../components/DailyDiary";
 import { AppNav } from "../components/AppNav";
 import { errorMessage, useCalTrack } from "../caltrack/store";
 
 export default function Goals() {
   const { goal, updateGoal, isSaving } = useCalTrack();
   const [calories, setCalories] = useState(String(goal.calorieTarget));
+  const [protein, setProtein] = useState(String(goal.proteinTarget ?? ""));
+  const [carbs, setCarbs] = useState(String(goal.carbsTarget ?? ""));
+  const [fat, setFat] = useState(String(goal.fatTarget ?? ""));
   const [selected, setSelected] = useState(goal.goal);
   const save = async () => {
     try {
-      await updateGoal({ calorieTarget: Number(calories), goal: selected });
+      await updateGoal({ calorieTarget: Number(calories), goal: selected, proteinTarget: protein.trim() ? Number(protein) : null, carbsTarget: carbs.trim() ? Number(carbs) : null, fatTarget: fat.trim() ? Number(fat) : null });
       Alert.alert("Goals saved", "Your daily calorie target has been updated.");
     } catch (error) {
       Alert.alert("Could not save goals", errorMessage(error));
@@ -24,6 +28,8 @@ export default function Goals() {
           Set a target that fits your current routine.
         </Text>
 
+        <DateHeading />
+        <DailyProgress />
         <Text style={styles.label}>What are you working toward?</Text>
         <View style={styles.options}>
           {(["lose", "maintain", "gain"] as const).map((item) => (
@@ -59,6 +65,12 @@ export default function Goals() {
           <Text style={styles.kcal}>kcal / day</Text>
         </View>
 
+        <Text style={styles.label}>Optional daily macro targets (g)</Text>
+        <Text style={styles.subtitle}>Leave blank to track intake without a macro target.</Text>
+        {([{ label: 'Protein', value: protein, change: setProtein }, { label: 'Carbs', value: carbs, change: setCarbs }, { label: 'Fat', value: fat, change: setFat }]).map((field) => <View key={field.label}>
+          <Text style={styles.label}>{field.label}</Text>
+          <TextInput accessibilityLabel={field.label + ' target in grams'} style={styles.input} value={field.value} onChangeText={field.change} keyboardType="decimal-pad" />
+        </View>)}
         <View style={styles.tip}>
           <Text style={styles.tipTitle}>A balanced approach</Text>
           <Text style={styles.tipCopy}>
