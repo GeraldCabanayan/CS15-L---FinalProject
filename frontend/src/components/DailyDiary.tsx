@@ -64,11 +64,18 @@ export function DailyProgress() {
           {Math.round(progress.over)} kcal above target
         </Text>
       )}
-      {(['protein', 'carbs', 'fat'] as const).map((key) => (
-        <Text key={key} style={diaryStyles.white}>
-          {key}: {total[key].toFixed(1)} g
-          {goal[`${key}Target`] != null ? ` / ${goal[`${key}Target`]} g` : ''}
-        </Text>
+      {([
+        { key: 'protein', label: 'Protein', color: '#42a5f5' },
+        { key: 'carbs', label: 'Carbohydrates', color: '#ffb74d' },
+        { key: 'fat', label: 'Total Fat', color: '#ba68c8' },
+      ] as const).map(({ key, label, color }) => (
+        <View key={key} style={diaryStyles.nutrientRow}>
+          <View accessible={false} style={[diaryStyles.nutrientDot, { backgroundColor: color }]} />
+          <Text style={[diaryStyles.white, diaryStyles.nutrientText]}>
+            {label}: {total[key].toFixed(1)} g
+            {goal[`${key}Target`] != null ? ` / ${goal[`${key}Target`]} g` : ''}
+          </Text>
+        </View>
       ))}
       <Text style={diaryStyles.white}>
         Fiber {total.fiber.toFixed(1)} g · Sugar {total.sugar.toFixed(1)} g · Sodium{' '}
@@ -467,6 +474,19 @@ export const diaryStyles = StyleSheet.create({
   white: {
     color: '#fff',
     lineHeight: 21,
+  },
+  nutrientRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  nutrientDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  nutrientText: {
+    flex: 1,
   },
   value: {
     fontSize: 26,
