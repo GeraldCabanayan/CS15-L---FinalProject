@@ -433,7 +433,12 @@ test("invalid dates, quantities and macro targets are rejected", async (t) => {
 });
 
 test("calendar handles leap years and year boundaries without UTC parsing", () => {
-  const { calendarMonth } = load('calendar.ts');
+  const { calendarDateKey, calendarMonth } = load('calendar.ts');
+  assert.equal(calendarDateKey(2026, 10), '2026-10-01');
+  assert.equal(calendarDateKey(2024, 2, 29), '2024-02-29');
+  assert.throws(() => calendarDateKey(2025, 2, 29), /date/);
+  assert.throws(() => calendarDateKey(2026, 4, 31), /date/);
+  assert.throws(() => calendarDateKey(26, 10, 17), /four-digit year/);
   assert.equal(calendarMonth('2024-02-01').days.filter(Boolean).length, 29);
   assert.equal(calendarMonth('2025-02-01').days.filter(Boolean).length, 28);
   assert.equal(calendarMonth('2026-12-31', 1).key, '2027-01-01');

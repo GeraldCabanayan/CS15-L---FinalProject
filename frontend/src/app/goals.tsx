@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import { DateHeading, DailyProgress } from "../components/DailyDiary";
+import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { AnimatedPressable } from "../components/AnimatedPressable";
+import { DailyProgress } from "../components/DailyDiary";
 import { AppNav } from "../components/AppNav";
 import { errorMessage, useCalTrack } from "../caltrack/store";
 
@@ -28,12 +29,11 @@ export default function Goals() {
           Set a target that fits your current routine.
         </Text>
 
-        <DateHeading />
         <DailyProgress />
         <Text style={styles.label}>What are you working toward?</Text>
         <View style={styles.options}>
           {(["lose", "maintain", "gain"] as const).map((item) => (
-            <Pressable
+            <AnimatedPressable
               key={item}
               onPress={() => setSelected(item)}
               style={[styles.option, selected === item && styles.selected]}
@@ -50,7 +50,7 @@ export default function Goals() {
                     ? "Gain weight"
                     : "Maintain"}
               </Text>
-            </Pressable>
+            </AnimatedPressable>
           ))}
         </View>
 
@@ -79,13 +79,13 @@ export default function Goals() {
           </Text>
         </View>
 
-        <Pressable
+        <AnimatedPressable
           style={styles.save}
           disabled={isSaving}
           onPress={save}
         >
           <Text style={styles.saveText}>{isSaving ? "Saving…" : "Save changes"}</Text>
-        </Pressable>
+        </AnimatedPressable>
       </ScrollView>
       <AppNav />
     </View>

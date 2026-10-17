@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import { ActivityIndicator, AppState, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, AppState, StyleSheet, Text, View } from "react-native";
+import { AnimatedPressable } from "../components/AnimatedPressable";
 import { localDate, validateDate, type CalTrackRepository, type CalTrackSnapshot } from "./repository";
 import { calTrackRepository } from "./sqlite";
 import type { Meal, MealCategory, UserGoal } from "./types";
@@ -79,9 +80,9 @@ export function CalTrackProvider({ children, repository = calTrackRepository }: 
         {error ? <>
           <Text style={styles.title}>Unable to load your data</Text>
           <Text>{error}</Text>
-          <Pressable disabled={pending > 0} onPress={() => { void run().catch(() => undefined); }}>
+          <AnimatedPressable disabled={pending > 0} onPress={() => { void run().catch(() => undefined); }}>
             <Text style={styles.retry}>{pending ? "Retrying…" : "Retry"}</Text>
-          </Pressable>
+          </AnimatedPressable>
         </> : <><ActivityIndicator color="#00a900" /><Text>Loading CalTrack…</Text></>}
       </View>
     );

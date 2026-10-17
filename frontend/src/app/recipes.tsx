@@ -2,19 +2,27 @@ import { Link, router } from "expo-router";
 import { useState } from "react";
 import {
   Alert,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
+import Animated, {
+  FadeInDown,
+  FadeOutUp,
+  LinearTransition,
+} from "react-native-reanimated";
 import { AppNav } from "../components/AppNav";
+import { AnimatedPressable } from "../components/AnimatedPressable";
 import { errorMessage, useCalTrack } from "../caltrack/store";
-import { DateHeading, LogRecipe } from "../components/DailyDiary";
+import { LogRecipe } from "../components/DailyDiary";
 import { nameMatches } from "../caltrack/suggestions";
 import { perServing } from "../caltrack/types";
 
+const cardEntering = FadeInDown.duration(180);
+const cardExiting = FadeOutUp.duration(140);
+const recipeLayout = LinearTransition.duration(180);
 
 export default function Recipes() {
   const { meals, deleteMeal, isSaving } = useCalTrack();
@@ -42,7 +50,7 @@ export default function Recipes() {
           ＋ Create recipe
         </Link>
 
-        <DateHeading />
+
         <TextInput accessibilityLabel="Search saved recipes" placeholder="Search saved recipes" placeholderTextColor="rgba(0, 0, 0, 0.5)" value={query} 
         onChangeText={setQuery} style={{ 
           minHeight: 48,
@@ -58,7 +66,13 @@ export default function Recipes() {
 
 
           return (
-            <View key={meal.id} style={styles.card}>
+            <Animated.View
+              key={meal.id}
+              entering={cardEntering}
+              exiting={cardExiting}
+              layout={recipeLayout}
+              style={styles.card}
+            >
               <View style={styles.food}>
                 <Text style={styles.emoji}>🥗</Text>
                 <View style={{ flex: 1 }}>
@@ -88,28 +102,33 @@ export default function Recipes() {
               </View>
 
               <View style={styles.logCategoryList}>
-                <Pressable disabled={isSaving} style={styles.logCategory}
+                <AnimatedPressable disabled={isSaving} style={styles.logCategory}
                   onPress={() => router.push({ pathname: "/create", params: { id: meal.id } })}>
                   <Text style={styles.logCategoryText}>Edit</Text>
-                </Pressable>
-                <Pressable disabled={isSaving} style={styles.logCategory} onPress={() => setDeleteId(meal.id)}>
+                </AnimatedPressable>
+                <AnimatedPressable disabled={isSaving} style={styles.logCategory} onPress={() => setDeleteId(meal.id)}>
                   <Text style={styles.logCategoryText}>Delete</Text>
-                </Pressable>
+                </AnimatedPressable>
               </View>
-              {deleteId === meal.id && <View style={styles.logPicker}>
+              {deleteId === meal.id && <Animated.View
+                entering={cardEntering}
+                exiting={cardExiting}
+                layout={recipeLayout}
+                style={styles.logPicker}
+              >
                 <Text style={styles.logPickerLabel}>Delete this recipe and all its meal logs?</Text>
                 <View style={styles.logCategoryList}>
-                  <Pressable disabled={isSaving} style={styles.logCategory} onPress={() => remove(meal.id)}>
+                  <AnimatedPressable disabled={isSaving} style={styles.logCategory} onPress={() => remove(meal.id)}>
                     <Text style={styles.logCategoryText}>Confirm delete</Text>
-                  </Pressable>
-                  <Pressable style={styles.logCategory} onPress={() => setDeleteId(null)}>
+                  </AnimatedPressable>
+                  <AnimatedPressable style={styles.logCategory} onPress={() => setDeleteId(null)}>
                     <Text style={styles.logCategoryText}>Cancel</Text>
-                  </Pressable>
+                  </AnimatedPressable>
                 </View>
-              </View>}
+              </Animated.View>}
 
               <LogRecipe meal={meal} />
-            </View>
+            </Animated.View>
           );
         })}
       </ScrollView>

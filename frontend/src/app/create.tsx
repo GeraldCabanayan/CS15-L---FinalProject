@@ -1,9 +1,10 @@
 
 import { router, useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View, } from "react-native";
+import { Alert, ScrollView, StyleSheet, Text, TextInput, View, } from "react-native";
 import { ingredientMatches } from "../caltrack/suggestions";
 import { AppNav } from "../components/AppNav";
+import { AnimatedPressable } from "../components/AnimatedPressable";
 import { errorMessage, useCalTrack } from "../caltrack/store";
 import { emptyNutrition, sumNutrition, type Ingredient, type Nutrition, type Meal } from "../caltrack/types";
 
@@ -110,9 +111,9 @@ function MealForm({ existing, editing, addMeal, updateMeal, isSaving }: {
   return (
     <View style={styles.screen}>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
-        <Pressable onPress={() => router.back()}>
+        <AnimatedPressable onPress={() => router.back()}>
           <Text style={styles.back}>‹ Back</Text>
-        </Pressable>
+        </AnimatedPressable>
 
         <Text style={styles.title}>{editing ? "Edit a meal" : "Create a meal"}</Text>
         <Text style={styles.subtitle}>
@@ -120,10 +121,10 @@ function MealForm({ existing, editing, addMeal, updateMeal, isSaving }: {
         </Text>
         {(existing?.nutritionComplete === false || !nutritionComplete) && <View style={{ marginTop: 16, gap: 8 }}>
           <Text>Some nutrition came from older CalTrack records. Calories are preserved; other nutrients were not stored. Enter the missing values and confirm the recipe's serving yield.</Text>
-          <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: nutritionComplete }}
+          <AnimatedPressable accessibilityRole="checkbox" accessibilityState={{ checked: nutritionComplete }}
             style={{ minHeight: 44, justifyContent: 'center' }} onPress={() => setNutritionComplete(!nutritionComplete)}>
             <Text style={styles.addText}>{nutritionComplete ? '[x]' : '[ ]'} I have entered the missing nutritional values</Text>
-          </Pressable>
+          </AnimatedPressable>
         </View>}
 
         <Text style={styles.label}>Meal name</Text>
@@ -174,7 +175,7 @@ function MealForm({ existing, editing, addMeal, updateMeal, isSaving }: {
             {activeIngredient === item.id && item.name.trim().length > 0 && <View>
               <Text style={styles.fieldLabel}>Saved ingredients: nutrition is for the displayed amount</Text>
               {ingredientMatches(meals, item.name).length === 0 && <Text>No saved match. Enter this ingredient manually.</Text>}
-              {ingredientMatches(meals, item.name).map((match, matchIndex) => <Pressable key={matchIndex}
+              {ingredientMatches(meals, item.name).map((match, matchIndex) => <AnimatedPressable key={matchIndex}
                 style={{ minHeight: 44, paddingVertical: 10 }} onPress={() => {
                   if (meals.some((meal) => meal.nutritionComplete === false && meal.ingredients.includes(match))) setNutritionComplete(false);
                   setIngredients((items) => items.map((current) => current.id === item.id ? { ...match, id: current.id } : current));
@@ -182,12 +183,12 @@ function MealForm({ existing, editing, addMeal, updateMeal, isSaving }: {
                   setActiveIngredient(null);
                 }}>
                 <Text style={styles.addText}>{match.name} · {match.amount || 'amount unspecified'} · {match.calories} kcal</Text>
-              </Pressable>)}
+              </AnimatedPressable>)}
             </View>}
             {ingredients.length > 1 && (
-              <Pressable onPress={() => setIngredients((items) => items.filter((ingredient) => ingredient.id !== item.id))}>
+              <AnimatedPressable onPress={() => setIngredients((items) => items.filter((ingredient) => ingredient.id !== item.id))}>
                 <Text style={styles.addText}>Remove ingredient</Text>
-              </Pressable>
+              </AnimatedPressable>
             )}
 
             <View style={styles.nutritionGrid}>
@@ -206,12 +207,12 @@ function MealForm({ existing, editing, addMeal, updateMeal, isSaving }: {
           </View>
         ))}
 
-        <Pressable
+        <AnimatedPressable
           style={styles.add}
           onPress={() => setIngredients((items) => [...items, blank()])}
         >
           <Text style={styles.addText}>＋ Add ingredient</Text>
-        </Pressable>
+        </AnimatedPressable>
 
         <View style={styles.summary}>
           <Text style={styles.summaryTitle}>Meal total</Text>
@@ -232,9 +233,9 @@ function MealForm({ existing, editing, addMeal, updateMeal, isSaving }: {
           </View>
         </View>
 
-        <Pressable style={styles.save} disabled={saving || isSaving} onPress={save}>
+        <AnimatedPressable style={styles.save} disabled={saving || isSaving} onPress={save}>
           <Text style={styles.saveText}>{saving ? "Saving…" : "Save recipe"}</Text>
-        </Pressable>
+        </AnimatedPressable>
       </ScrollView>
       <AppNav />
     </View>

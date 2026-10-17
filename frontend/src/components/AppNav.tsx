@@ -1,11 +1,12 @@
 import { router, usePathname } from "expo-router";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
+import { AnimatedPressable } from "./AnimatedPressable";
 
 const tabs = [
   { label: "Home", icon: "⌂", path: "/" },
-  { label: "Calendar", icon: "\u25a6", path: "/calendar" },
-  { label: "Recipes", icon: "▣", path: "/recipes" },
   { label: "Create", icon: "+", path: "/create" },
+  { label: "Recipes", icon: "▣", path: "/recipes" },
+  { label: "Calendar", icon: "\u25a6", path: "/calendar" },
   { label: "Goals", icon: "◎", path: "/goals" },
   { label: "Profile", icon: "\u25cb", path: "/profile"}
 ];
@@ -19,7 +20,7 @@ export function AppNav() {
         const isActive = pathname === tab.path;
 
         return (
-          <Pressable
+          <AnimatedPressable
             key={tab.path}
             accessibilityRole="tab"
             accessibilityState={{ selected: isActive }}
@@ -32,7 +33,7 @@ export function AppNav() {
             <Text style={[styles.label, isActive && styles.active]}>
               {tab.label}
             </Text>
-          </Pressable>
+          </AnimatedPressable>
         );
       })}
     </View>
