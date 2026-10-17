@@ -25,8 +25,8 @@ import {
 import { recommendRecipes } from '../caltrack/suggestions';
 import { AnimatedPressable } from './AnimatedPressable';
 
-const cardEntering = FadeInDown.duration(180);
-const cardExiting = FadeOutUp.duration(140);
+const cardEntering = FadeInDown.duration(60);
+const cardExiting = FadeOutUp.duration(120);
 const itemEntering = FadeIn.duration(180);
 const itemExiting = FadeOut.duration(120);
 const diaryLayout = LinearTransition.duration(180);
@@ -205,19 +205,41 @@ function CategoryPicker({
 
 function DiaryEntry({ meal, entry }: { meal: Meal; entry: LoggedMeal }) {
   const { updateLog, deleteLog, isSaving } = useCalTrack();
+  const [expanded, setExpanded] = useState(false);
   const [editing, setEditing] = useState(false);
   const [quantity, setQuantity] = useState(String(entry.quantity));
   const [category, setCategory] = useState(entry.category);
   const nutrition = scaleNutrition(perServing(meal), entry.quantity);
+  const cardScale = useSharedValue(1);
+  const cardAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: cardScale.value }],
+  }));
 
   return (
     <Animated.View
       entering={cardEntering}
       exiting={cardExiting}
       layout={diaryLayout}
-      style={diaryStyles.card}
+      style={[diaryStyles.card, cardAnimatedStyle]}
     >
-      <Text style={diaryStyles.title}>{meal.name}</Text>
+      <AnimatedPressable
+        accessibilityRole="button"
+        accessibilityLabel={`${meal.name} meal details`}
+        accessibilityState={{ expanded }}
+        pressedScale={1}
+        style={diaryStyles.cardSummary}
+        onPressIn={() => {
+          cardScale.value = withTiming(0.98, { duration: 80 });
+        }}
+        onPressOut={() => {
+          cardScale.value = withTiming(1, { duration: 120 });
+        }}
+        onPress={() => {
+          setExpanded(!expanded);
+          if (expanded) setEditing(false);
+        }}
+      >
+        <Text style={diaryStyles.title}>{meal.name}</Text>
       <Text>
         {entry.quantity} serving(s) · {nutrition.calories.toFixed(0)} kcal
       </Text>
@@ -231,24 +253,33 @@ function DiaryEntry({ meal, entry }: { meal: Meal; entry: LoggedMeal }) {
         </Text>
       )}
 
-      <View style={diaryStyles.row}>
+      </AnimatedPressable>
+
+      {expanded && (
+        <Animated.View
+          entering={cardEntering}
+          exiting={cardExiting}
+          layout={diaryLayout}
+          style={diaryStyles.actionPanel}
+        >
+          <View style={diaryStyles.actionRow}>
         <AnimatedPressable
           disabled={isSaving}
-          style={diaryStyles.button}
+          style={[diaryStyles.button, diaryStyles.editAction]}
           onPress={() => {
             setQuantity(String(entry.quantity));
             setCategory(entry.category);
             setEditing(!editing);
           }}
         >
-          <Text style={diaryStyles.link}>Edit log</Text>
+          <Text style={[diaryStyles.link, diaryStyles.editActionText]}>Edit</Text>
         </AnimatedPressable>
         <AnimatedPressable
           disabled={isSaving}
-          style={diaryStyles.button}
+          style={[diaryStyles.button, diaryStyles.removeAction]}
           onPress={() => perform(() => deleteLog(entry.id))}
         >
-          <Text style={diaryStyles.link}>Remove log</Text>
+          <Text style={[diaryStyles.link, diaryStyles.removeActionText]}>Remove</Text>
         </AnimatedPressable>
       </View>
 
@@ -274,6 +305,8 @@ function DiaryEntry({ meal, entry }: { meal: Meal; entry: LoggedMeal }) {
           >
             <Text style={diaryStyles.link}>Save log</Text>
           </AnimatedPressable>
+        </Animated.View>
+      )}
         </Animated.View>
       )}
     </Animated.View>
@@ -390,6 +423,36 @@ export const diaryStyles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 16,
     marginVertical: 6,
+  },
+  cardSummary: {
+    gap: 8,
+    padding: 2,
+    borderRadius: 10,
+  },
+  actionPanel: {
+    gap: 8,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 100,
+  },
+  editAction: {
+
+    minWidth: 110,
+    alignItems: 'center',
+  },
+  editActionText: {
+    color: '#16833a',
+  },
+  removeAction: {
+    
+    minWidth: 110,
+    alignItems: 'center',
+  },
+  removeActionText: {
+    color: '#c62828',
   },
   hero: {
     padding: 20,

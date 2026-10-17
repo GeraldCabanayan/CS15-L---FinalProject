@@ -8,7 +8,6 @@ import {
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
-  withSpring,
   withTiming,
 } from 'react-native-reanimated';
 
@@ -30,7 +29,7 @@ export function AnimatedPressable({
   disabled,
   onPressIn,
   onPressOut,
-  pressedScale = 0.96,
+  pressedScale = 1.1,
   style,
   ...props
 }: AnimatedPressableProps) {
@@ -41,12 +40,12 @@ export function AnimatedPressable({
   }));
 
   const handlePressIn = (event: GestureResponderEvent) => {
-    scale.value = withTiming(pressedScale, { duration: 80 });
+    scale.value = withTiming(pressedScale, { duration: 10 }); 
     onPressIn?.(event);
   };
 
   const handlePressOut = (event: GestureResponderEvent) => {
-    scale.value = withSpring(1, { damping: 16, stiffness: 260 });
+    scale.value = withTiming(1, { duration: 120 });
     onPressOut?.(event);
   };
 
@@ -54,8 +53,8 @@ export function AnimatedPressable({
     <ReanimatedPressable
       {...props}
       disabled={disabled}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
+      onPressIn={ handlePressIn }
+      onPressOut={ handlePressOut }
       style={[style, disabled && disabledStyle, animatedStyle]}
     />
   );

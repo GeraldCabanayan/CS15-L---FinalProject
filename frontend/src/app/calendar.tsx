@@ -1,20 +1,19 @@
 import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Animated, {
+  Easing,
   FadeIn,
-  FadeInDown,
   FadeInLeft,
   FadeInRight,
   FadeOut,
   FadeOutLeft,
   FadeOutRight,
-  FadeOutUp,
-  LinearTransition,
   interpolate,
   interpolateColor,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 import { calendarDateKey, calendarMonth } from '../caltrack/calendar';
 import { localDate } from '../caltrack/repository';
@@ -23,16 +22,12 @@ import { AnimatedPressable } from '../components/AnimatedPressable';
 import { AppNav } from '../components/AppNav';
 import { DailyDiary, diaryStyles as styles, perform } from '../components/DailyDiary';
 
-const panelEntering = FadeInDown.duration(180);
-const panelExiting = FadeOutUp.duration(140);
 const monthFromLeft = FadeInLeft.duration(180);
 const monthFromRight = FadeInRight.duration(180);
 const monthToLeft = FadeOutLeft.duration(140);
 const monthToRight = FadeOutRight.duration(140);
 const monthFadeIn = FadeIn.duration(160);
 const monthFadeOut = FadeOut.duration(120);
-const calendarLayout = LinearTransition.duration(180);
-
 const months = Array.from({ length: 12 }, (_, index) => ({
   number: index + 1,
   label: new Date(2024, index, 1, 12).toLocaleDateString(undefined, {
@@ -49,11 +44,29 @@ export default function Calendar() {
   const [searchDay, setSearchDay] = useState('');
   const [searchError, setSearchError] = useState<string | null>(null);
   const [monthDirection, setMonthDirection] = useState<-1 | 0 | 1>(0);
+  const [dateSearchHeight, setDateSearchHeight] = useState(0);
+  const dateSearchProgress = useSharedValue(0);
 
   useEffect(() => {
     setMonthDirection(0);
     setMonth(date);
   }, [date]);
+
+  useEffect(() => {
+    if (!dateSearchHeight) return;
+
+    dateSearchProgress.value = withTiming(showDateSearch ? 1 : 0, {
+      duration: showDateSearch ? 240 : 200,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [dateSearchHeight, dateSearchProgress, showDateSearch]);
+
+  const dateSearchClipStyle = useAnimatedStyle(() => ({
+    height: dateSearchHeight * dateSearchProgress.value,
+  }));
+  const dateSearchPanelStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: -12 * (1 - dateSearchProgress.value) }],
+  }));
 
   const calendar = calendarMonth(month);
 
@@ -106,135 +119,149 @@ export default function Calendar() {
   return (
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.title}>Meal calendar</Text>
+        <View style={calendarStyles.searchSection}>
+          <View style={calendarStyles.calendarHeader}>
+            <Text style={styles.title}>Meal calendar</Text>
 
-        <View
-          style={[
-            styles.row,
-            { justifyContent: 'space-between', alignItems: 'center' },
-          ]}
-        >
-          <AnimatedPressable
-            accessibilityLabel="Previous month"
-            style={styles.button}
-            onPress={() => moveMonth(-1)}
-          >
-            <Text>{'\u2039'}</Text>
-          </AnimatedPressable>
+            <View
+              style={[
+                styles.row,
+                { justifyContent: 'space-between', alignItems: 'center' },
+              ]}
+            >
+              <AnimatedPressable
+                accessibilityLabel="Previous month"
+                style={styles.button}
+                onPress={() => moveMonth(-1)}
+              >
+                <Text>{'\u2039'}</Text>
+              </AnimatedPressable>
 
-          <Text style={styles.title}>{calendar.label}</Text>
+              <Text style={styles.title}>{calendar.label}</Text>
 
-          <AnimatedPressable
-            accessibilityLabel="Next month"
-            style={styles.button}
-            onPress={() => moveMonth(1)}
-          >
-            <Text>{'\u203A'}</Text>
-          </AnimatedPressable>
-        </View>
-
-        <AnimatedPressable
-          accessibilityRole="button"
-          accessibilityState={{ expanded: showDateSearch }}
-          style={[styles.button, calendarStyles.searchToggle]}
-          onPress={toggleDateSearch}
-        >
-          <Text style={styles.link}>
-            {showDateSearch ? 'Close date search' : 'Jump to a month or date'}
-          </Text>
-        </AnimatedPressable>
-
-        {showDateSearch && (
-          <Animated.View
-            entering={panelEntering}
-            exiting={panelExiting}
-            layout={calendarLayout}
-            style={styles.card}
-          >
-            <Text style={styles.title}>Jump to a month or date</Text>
-            <Text style={styles.muted}>
-              Choose a month and year. Add a day to select that exact diary date.
-            </Text>
-
-            <Text>Month</Text>
-            <View style={calendarStyles.monthList}>
-              {months.map((item) => {
-                const selected = item.number === searchMonth;
-                return (
-                  <AnimatedPressable
-                    key={item.number}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected }}
-                    style={[
-                      styles.button,
-                      calendarStyles.monthButton,
-                      selected && calendarStyles.selectedMonth,
-                    ]}
-                    onPress={() => setSearchMonth(item.number)}
-                  >
-                    <Text style={selected ? styles.link : undefined}>{item.label}</Text>
-                  </AnimatedPressable>
-                );
-              })}
+              <AnimatedPressable
+                accessibilityLabel="Next month"
+                style={styles.button}
+                onPress={() => moveMonth(1)}
+              >
+                <Text>{'\u203A'}</Text>
+              </AnimatedPressable>
             </View>
 
-            <View style={calendarStyles.inputRow}>
-              <View style={calendarStyles.inputGroup}>
-                <Text>Year</Text>
-                <TextInput
-                  accessibilityLabel="Year to open"
-                  style={styles.input}
-                  value={searchYear}
-                  onChangeText={setSearchYear}
-                  keyboardType="number-pad"
-                  maxLength={4}
-                  placeholder="2026"
-                />
-              </View>
-              <View style={calendarStyles.inputGroup}>
-                <Text>Day (optional)</Text>
-                <TextInput
-                  accessibilityLabel="Day to select, optional"
-                  style={styles.input}
-                  value={searchDay}
-                  onChangeText={setSearchDay}
-                  keyboardType="number-pad"
-                  maxLength={2}
-                  placeholder="17"
-                />
-              </View>
-            </View>
-
-            {searchError && (
-              <Text accessibilityLiveRegion="polite" style={calendarStyles.error}>
-                {searchError}
+            <AnimatedPressable
+              accessibilityRole="button"
+              accessibilityState={{ expanded: showDateSearch }}
+              style={[styles.button, calendarStyles.searchToggle]}
+              onPress={toggleDateSearch}
+            >
+              <Text style={styles.link}>
+                {showDateSearch ? 'Close date search' : 'Jump to a month or date'}
               </Text>
-            )}
+            </AnimatedPressable>
+          </View>
 
-            <View style={styles.row}>
-              <AnimatedPressable
-                disabled={isSaving}
-                style={[styles.button, calendarStyles.actionButton]}
-                onPress={() => void goToSearchDate()}
-              >
-                <Text style={styles.link}>Go</Text>
-              </AnimatedPressable>
-              <AnimatedPressable
-                disabled={isSaving}
-                style={[styles.button, calendarStyles.actionButton]}
-                onPress={() => void goToToday()}
-              >
-                <Text style={styles.link}>Today</Text>
-              </AnimatedPressable>
-              <AnimatedPressable
-                style={[styles.button, calendarStyles.actionButton]}
-                onPress={toggleDateSearch}
-              >
-                <Text>Cancel</Text>
-              </AnimatedPressable>
-            </View>
+          <Animated.View
+            accessibilityElementsHidden={!showDateSearch}
+            importantForAccessibility={showDateSearch ? 'auto' : 'no-hide-descendants'}
+            pointerEvents={showDateSearch ? 'auto' : 'none'}
+            style={[calendarStyles.dateSearchClip, dateSearchClipStyle]}
+          >
+            <Animated.View
+              onLayout={(event) => {
+                const height = event.nativeEvent.layout.height;
+                if (height !== dateSearchHeight) setDateSearchHeight(height);
+              }}
+              style={[calendarStyles.dateSearchLayer, dateSearchPanelStyle]}
+            >
+              <View style={[styles.card, calendarStyles.dateSearchCard]}>
+                <Text style={styles.title}>Jump to a month or date</Text>
+                <Text style={styles.muted}>
+                  Choose a month and year. Add a day to select that exact diary date.
+                </Text>
+
+                <Text>Month</Text>
+                <View style={calendarStyles.monthList}>
+                  {months.map((item) => {
+                    const selected = item.number === searchMonth;
+                    return (
+                      <AnimatedPressable
+                        key={item.number}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected }}
+                        style={[
+                          styles.button,
+                          calendarStyles.monthButton,
+                          selected && calendarStyles.selectedMonth,
+                        ]}
+                        onPress={() => setSearchMonth(item.number)}
+                      >
+                        <Text style={selected ? styles.link : undefined}>
+                          {item.label}
+                        </Text>
+                      </AnimatedPressable>
+                    );
+                  })}
+                </View>
+
+                <View style={calendarStyles.inputRow}>
+                  <View style={calendarStyles.inputGroup}>
+                    <Text>Year</Text>
+                    <TextInput
+                      accessibilityLabel="Year to open"
+                      style={styles.input}
+                      value={searchYear}
+                      onChangeText={setSearchYear}
+                      keyboardType="number-pad"
+                      maxLength={4}
+                      placeholder="2026"
+                    />
+                  </View>
+                  <View style={calendarStyles.inputGroup}>
+                    <Text>Day (optional)</Text>
+                    <TextInput
+                      accessibilityLabel="Day to select, optional"
+                      style={styles.input}
+                      value={searchDay}
+                      onChangeText={setSearchDay}
+                      keyboardType="number-pad"
+                      maxLength={2}
+                      placeholder="17"
+                    />
+                  </View>
+                </View>
+
+                {searchError && (
+                  <Text accessibilityLiveRegion="polite" style={calendarStyles.error}>
+                    {searchError}
+                  </Text>
+                )}
+
+                <View style={styles.row}>
+                  <AnimatedPressable
+                    disabled={isSaving}
+                    style={[styles.button, calendarStyles.actionButton]}
+                    onPress={() => void goToSearchDate()}
+                  >
+                    <Text style={styles.link}>Go</Text>
+                  </AnimatedPressable>
+                  <AnimatedPressable
+                    disabled={isSaving}
+                    style={[styles.button, calendarStyles.actionButton]}
+                    onPress={() => void goToToday()}
+                  >
+                    <Text style={styles.link}>Today</Text>
+                  </AnimatedPressable>
+                  <AnimatedPressable
+                    style={[styles.button, calendarStyles.actionButton]}
+                    onPress={toggleDateSearch}
+                  >
+                    <Text>Cancel</Text>
+                  </AnimatedPressable>
+                </View>
+              </View>
+            </Animated.View>
           </Animated.View>
-        )}
+        </View>
 
         <Animated.View
           key={calendar.key}
@@ -252,7 +279,6 @@ export default function Calendar() {
                 ? monthToLeft
                 : monthFadeOut
           }
-          layout={calendarLayout}
           style={calendarStyles.calendarGrid}
         >
           {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((day) => (
@@ -337,6 +363,30 @@ function CalendarDay({
 }
 
 const calendarStyles = StyleSheet.create({
+  searchSection: {
+    zIndex: 1,
+  },
+  calendarHeader: {
+    zIndex: 2,
+    gap: 8,
+    padding: 14,
+    backgroundColor: '#fff',
+    borderRadius: 18,
+  },
+  dateSearchClip: {
+    zIndex: 1,
+    overflow: 'hidden',
+  },
+  dateSearchLayer: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    left: 0,
+    paddingTop: 12,
+  },
+  dateSearchCard: {
+    marginVertical: 0,
+  },
   searchToggle: {
     alignItems: 'center',
     borderColor: '#d8e8d8',
