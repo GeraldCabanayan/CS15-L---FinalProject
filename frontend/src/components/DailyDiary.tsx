@@ -24,6 +24,8 @@ import {
 } from '../caltrack/types';
 import { recommendRecipes } from '../caltrack/suggestions';
 import { AnimatedPressable } from './AnimatedPressable';
+import { RecipeDetails } from './RecipeDetails';
+import { RecipeSuggestions } from './RecipeSuggestions';
 
 const cardEntering = FadeInDown.duration(60);
 const cardExiting = FadeOutUp.duration(120);
@@ -313,7 +315,7 @@ function DiaryEntry({ meal, entry }: { meal: Meal; entry: LoggedMeal }) {
   );
 }
 
-export function DailyDiary() {
+export function DailyDiary({ showRecipeSuggestions = true }: { showRecipeSuggestions?: boolean }) {
   const { meals, loggedMeals, goal } = useCalTrack();
   const [suggesting, setSuggesting] = useState(false);
   const remaining = calorieProgress(
@@ -325,6 +327,7 @@ export function DailyDiary() {
   return (
     <View style={{ gap: 12 }}>
       <DailyProgress />
+      {showRecipeSuggestions && <RecipeSuggestions />}
       <Link href="/recipes" style={diaryStyles.link}>
         Browse saved recipes to add a meal
       </Link>
@@ -346,14 +349,14 @@ export function DailyDiary() {
         </Animated.View>
       ))}
 
-      <AnimatedPressable
+      {showRecipeSuggestions && <AnimatedPressable
         style={diaryStyles.button}
         onPress={() => setSuggesting(!suggesting)}
       >
         <Text style={diaryStyles.link}>Suggest recipes for this date</Text>
-      </AnimatedPressable>
+      </AnimatedPressable>}
 
-      {suggesting && (
+      {showRecipeSuggestions && suggesting && (
         <Animated.View
           entering={cardEntering}
           exiting={cardExiting}
@@ -386,6 +389,7 @@ export function DailyDiary() {
                   Imported recipe: macro values have not been recorded.
                 </Text>
               )}
+              <RecipeDetails meal={meal} collapsible />
               <LogRecipe meal={meal} />
             </Animated.View>
           ))}

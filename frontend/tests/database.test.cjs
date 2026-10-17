@@ -25,6 +25,7 @@ function load(relative) {
 }
 const { createDatabaseService } = load("database.ts");
 const { createSQLiteRepository, localDate } = load("repository.ts");
+const { sampleRecipes, initialSampleRecipes, filipinoSampleRecipes } = load('sampleRecipes.ts');
 
 // Real SQLite engine behind the same async driver contract used by Expo.
 function driver(filename = ":memory:") {
@@ -64,6 +65,7 @@ function meal(id = "meal-1") {
   return {
     id, name: "Chef's bowl'); DROP TABLE meals; --", category: "lunch", servings: 2,
     createdAt: "2026-10-10T10:00:00.000Z",
+    instructions: "1. Rinse the rice.\n2. Stir in the chef's beans; serve warm.",
     ingredients: [
       { id: "rice", name: "Rice", amount: "1 cup", calories: 200, protein: 4, carbs: 44, fat: 1, fiber: 2, sugar: 0, sodium: 5 },
       { id: "beans", name: "Beans", amount: "100 g", calories: 100, protein: 8, carbs: 20, fat: 0, fiber: 5, sugar: 1, sodium: 10 },
@@ -72,28 +74,133 @@ function meal(id = "meal-1") {
 }
 const today = "2026-10-10";
 
-test("initialization seeds only the default goal and is repeatable", async (t) => {
+test("initialization seeds sample recipes and the default goal only once", async (t) => {
   const { repo, service, db } = fixture(t);
   const initial = await repo.read(today);
-  assert.deepEqual(initial.meals, []);
+  assert.deepEqual(initial.meals, sampleRecipes);
   assert.deepEqual(initial.loggedMeals, []);
   assert.deepEqual(initial.goal, { calorieTarget: 2300, goal: "maintain", proteinTarget: null, carbsTarget: null, fatTarget: null });
-  assert.equal((await service.execute((conn) => conn.getFirstAsync("PRAGMA user_version"))).user_version, 3);
+  assert.equal((await service.execute((conn) => conn.getFirstAsync("PRAGMA user_version"))).user_version, 4);
   await repo.updateGoal({ calorieTarget: 1800, goal: "lose" });
   const reopened = createSQLiteRepository(createDatabaseService(async () => db));
   assert.equal((await reopened.read(today)).goal.calorieTarget, 1800);
+  assert.deepEqual((await reopened.read(today)).meals, sampleRecipes);
 });
 
 test("recipe create/read/update/delete preserves ingredient order and binds SQL input", async (t) => {
   const { repo } = fixture(t);
   const original = meal();
   await repo.createMeal(original);
-  assert.deepEqual((await repo.read(today)).meals, [original]);
-  const edited = { ...original, name: "Updated", servings: 3, category: "dinner", ingredients: [original.ingredients[1]] };
+  assert.deepEqual((await repo.read(today)).meals, [original, ...sampleRecipes]);
+  const edited = { ...original, name: "Updated", instructions: "Chef's tip: serve cold.\nEnjoy!", servings: 3, category: "dinner", ingredients: [original.ingredients[1]] };
   await repo.updateMeal(edited);
-  assert.deepEqual((await repo.read(today)).meals, [edited]);
+  assert.deepEqual((await repo.read(today)).meals, [edited, ...sampleRecipes]);
   await repo.deleteMeal(edited.id);
-  assert.equal((await repo.read(today)).meals.length, 0);
+  assert.deepEqual((await repo.read(today)).meals, sampleRecipes);
+});
+
+test('instructions can be cleared without affecting ingredients or existing diary entries', async (t) => {
+  const { repo, db } = fixture(t);
+  const original = meal();
+  await repo.createMeal(original);
+  await repo.logMeal(original.id, 'lunch', today, 0.5);
+  await repo.updateMeal({ ...original, instructions: '   ' });
+  const reopened = createSQLiteRepository(createDatabaseService(async () => db));
+  const saved = await reopened.read(today);
+  assert.equal(saved.meals[0].instructions, undefined);
+  assert.deepEqual(saved.meals[0].ingredients, original.ingredients);
+  assert.equal(saved.loggedMeals[0].quantity, 0.5);
+});
+
+test('sample edits and deletions persist through restart and an unversioned repair', async (t) => {
+  const { repo, db } = fixture(t);
+  const initial = await repo.read(today);
+  const edited = { ...initial.meals[0], instructions: "My own preparation steps", name: 'My breakfast' };
+  await repo.updateMeal(edited);
+  await repo.deleteMeal(initial.meals[1].id);
+  let reopened = createSQLiteRepository(createDatabaseService(async () => db));
+  let saved = await reopened.read(today);
+  assert.deepEqual(saved.meals.find(item => item.id === edited.id), edited);
+  assert.equal(saved.meals.some(item => item.id === initial.meals[1].id), false);
+  await db.execAsync('PRAGMA user_version = 0;');
+  reopened = createSQLiteRepository(createDatabaseService(async () => db));
+  saved = await reopened.read(today);
+  assert.deepEqual(saved.meals.find(item => item.id === edited.id), edited);
+  assert.equal(saved.meals.some(item => item.id === initial.meals[1].id), false);
+  assert.equal(saved.meals.length, sampleRecipes.length - 1);
+});
+
+test('version 3 migration preserves user data and rolls back partial sample seeding before retry', async (t) => {
+  const { repo, db } = fixture(t);
+  await repo.createMeal(meal());
+  await repo.logMeal('meal-1', 'dinner', today, 2);
+  await repo.updateGoal({ calorieTarget: 1800, goal: 'lose' });
+  for (const sample of sampleRecipes) await repo.deleteMeal(sample.id);
+  // Recreate the production v3 layout, which had no instructions or seed marker.
+  await db.execAsync('ALTER TABLE meals DROP COLUMN instructions; DROP TABLE app_metadata; PRAGMA user_version = 3;');
+  const close = db.closeAsync;
+  db.closeAsync = async () => {};
+  t.after(close);
+  db.failIngredient = true;
+  const upgraded = createSQLiteRepository(createDatabaseService(async () => db));
+  await assert.rejects(upgraded.read(today), /write failure/);
+  assert.equal((await db.getFirstAsync('PRAGMA user_version')).user_version, 3);
+  assert.deepEqual((await db.getAllAsync('SELECT id FROM meals')).map(row => row.id), ['meal-1']);
+  assert.equal((await db.getAllAsync('PRAGMA table_info(meals)')).some(row => row.name === 'instructions'), false);
+  assert.equal(await db.getFirstAsync("SELECT name FROM sqlite_master WHERE name = 'app_metadata'"), null);
+  db.failIngredient = false;
+  const saved = await upgraded.read(today);
+  const { instructions: _instructions, ...original } = meal();
+  assert.deepEqual(saved.meals, [original, ...sampleRecipes]);
+  assert.equal(saved.loggedMeals[0].quantity, 2);
+  assert.equal(saved.goal.calorieTarget, 1800);
+  assert.equal((await db.getFirstAsync('PRAGMA user_version')).user_version, 4);
+  assert.deepEqual(await db.getAllAsync('PRAGMA foreign_key_check'), []);
+});
+
+test('existing version 4 databases receive Filipino recipes once without restoring old samples', async (t) => {
+  const { repo, db } = fixture(t);
+  await repo.createMeal(meal());
+  const edited = { ...initialSampleRecipes[0], name: 'My breakfast', instructions: 'My own steps' };
+  await repo.updateMeal(edited);
+  await repo.deleteMeal(initialSampleRecipes[1].id);
+  // Simulate an existing installation from before the Filipino content batch.
+  for (const recipe of filipinoSampleRecipes) await repo.deleteMeal(recipe.id);
+  await db.runAsync("DELETE FROM app_metadata WHERE key = 'filipino_recipes_v1'");
+  const updated = createSQLiteRepository(createDatabaseService(async () => db));
+  const saved = await updated.read(today);
+  assert.deepEqual(saved.meals.find(row => row.id === meal().id), meal());
+  assert.deepEqual(saved.meals.find(row => row.id === edited.id), edited);
+  assert.equal(saved.meals.some(row => row.id === initialSampleRecipes[1].id), false);
+  for (const recipe of filipinoSampleRecipes) {
+    assert.deepEqual(saved.meals.find(row => row.id === recipe.id), recipe);
+    assert.equal(recipe.servings, 4);
+    assert.ok(load('types.ts').perServing(recipe).calories > 0);
+  }
+  assert.equal((await db.getFirstAsync('PRAGMA user_version')).user_version, 4);
+  await updated.deleteMeal(filipinoSampleRecipes[0].id);
+  const reopened = createSQLiteRepository(createDatabaseService(async () => db));
+  const afterRestart = await reopened.read(today);
+  assert.equal(afterRestart.meals.some(row => row.id === filipinoSampleRecipes[0].id), false);
+  assert.equal(afterRestart.meals.length, saved.meals.length - 1);
+  assert.deepEqual(await db.getAllAsync('PRAGMA foreign_key_check'), []);
+});
+
+test('failed Filipino content seeding rolls back and retries without partial recipes', async (t) => {
+  const { repo, db } = fixture(t);
+  const initial = await repo.read(today);
+  for (const recipe of filipinoSampleRecipes) await repo.deleteMeal(recipe.id);
+  await db.runAsync("DELETE FROM app_metadata WHERE key = 'filipino_recipes_v1'");
+  const close = db.closeAsync;
+  db.closeAsync = async () => {};
+  t.after(close);
+  db.failIngredient = true;
+  const updated = createSQLiteRepository(createDatabaseService(async () => db));
+  await assert.rejects(updated.read(today), /write failure/);
+  assert.equal((await db.getAllAsync('SELECT id FROM meals')).length, initialSampleRecipes.length);
+  assert.equal(await db.getFirstAsync("SELECT value FROM app_metadata WHERE key = 'filipino_recipes_v1'"), null);
+  db.failIngredient = false;
+  assert.deepEqual((await updated.read(today)).meals, initial.meals);
 });
 
 test("logs are daily, deduplicated, editable and removable", async (t) => {
@@ -119,7 +226,7 @@ test("deleting a recipe cascades ingredients and logs on every date", async (t) 
   await repo.logMeal("meal-1", "lunch", today);
   await repo.logMeal("meal-1", "lunch", "2026-10-11");
   await repo.deleteMeal("meal-1");
-  assert.equal((await service.execute((db) => db.getAllAsync("SELECT * FROM ingredients"))).length, 0);
+  assert.equal((await service.execute((db) => db.getAllAsync("SELECT * FROM ingredients WHERE meal_id = 'meal-1'"))).length, 0);
   assert.equal((await service.execute((db) => db.getAllAsync("SELECT * FROM meal_logs"))).length, 0);
 });
 
@@ -130,9 +237,9 @@ test("failed ingredient writes roll back recipe create and update", async (t) =>
   await assert.rejects(repo.createMeal(meal("failed")), /write failure/);
   await assert.rejects(repo.updateMeal({ ...meal(), name: "Should roll back" }), /write failure/);
   db.failIngredient = false;
-  assert.deepEqual((await repo.read(today)).meals, [meal()]);
+  assert.deepEqual((await repo.read(today)).meals, [meal(), ...sampleRecipes]);
   await repo.createMeal(meal("recovered"));
-  assert.equal((await repo.read(today)).meals.length, 2);
+  assert.equal((await repo.read(today)).meals.length, 2 + sampleRecipes.length);
 });
 
 test("invalid values and missing foreign keys are rejected without damaging data", async (t) => {
@@ -158,7 +265,7 @@ test("concurrent operations serialize and queue continues after rejection", asyn
   ]);
   assert.equal(results[0].status, "rejected");
   assert.equal(results[1].status, "fulfilled");
-  assert.equal(results[2].value.meals.length, 10);
+  assert.equal(results[2].value.meals.length, 10 + sampleRecipes.length);
   assert.equal(results[2].value.goal.calorieTarget, 2100);
 });
 
@@ -175,7 +282,7 @@ test("recipes, logs and goals survive a database close and reopen", async () => 
     db = driver(filename);
     repo = createSQLiteRepository(createDatabaseService(async () => db));
     const saved = await repo.read(today);
-    assert.deepEqual(saved.meals, [meal()]);
+    assert.deepEqual(saved.meals, [meal(), ...sampleRecipes]);
     assert.equal(saved.loggedMeals.length, 1);
     assert.deepEqual(saved.goal, { calorieTarget: 1900, goal: "lose", proteinTarget: null, carbsTarget: null, fatTarget: null });
   } finally {
@@ -201,7 +308,7 @@ test("startup failure can be retried", async (t) => {
 
 test("future schema versions are rejected without rewriting them", async () => {
   const db = driver();
-  await db.execAsync("PRAGMA user_version = 4");
+  await db.execAsync("PRAGMA user_version = 5");
   const repo = createSQLiteRepository(createDatabaseService(async () => db));
   await assert.rejects(repo.read(today), /newer version/);
 });
@@ -220,10 +327,10 @@ test("startup reuses an existing ingredients table in an unversioned database", 
   const ingredientSchema = source.match(/CREATE TABLE IF NOT EXISTS ingredients \([\s\S]*?\n\);/)[0];
   await db.execAsync(ingredientSchema);
   const repo = createSQLiteRepository(createDatabaseService(async () => db));
-  assert.equal((await repo.read(today)).meals.length, 0);
+  assert.deepEqual((await repo.read(today)).meals, sampleRecipes);
   await repo.createMeal(meal());
-  assert.deepEqual((await repo.read(today)).meals, [meal()]);
-  assert.equal((await db.getFirstAsync('PRAGMA user_version')).user_version, 3);
+  assert.deepEqual((await repo.read(today)).meals, [meal(), ...sampleRecipes]);
+  assert.equal((await db.getFirstAsync('PRAGMA user_version')).user_version, 4);
 });
 
 test("startup preserves unversioned v1 recipes, logs and a saved goal", async (t) => {
@@ -255,7 +362,7 @@ test("repairing an unversioned v2 database preserves portions and macro targets"
   assert.equal(saved.goal.proteinTarget, 120);
   assert.equal(saved.goal.carbsTarget, 200);
   assert.equal(saved.goal.fatTarget, 60);
-  assert.deepEqual(saved.meals, [meal()]);
+  assert.deepEqual(saved.meals, [meal(), ...sampleRecipes]);
 });
 
 test("unknown legacy table layouts are left untouched instead of deleted", async (t) => {
@@ -295,7 +402,7 @@ for (const version of [0, 2]) {
     assert.equal(load('types.ts').dailyNutrition(saved.meals, saved.loggedMeals).calories, 150);
     const reopened = createSQLiteRepository(createDatabaseService(async () => db));
     assert.deepEqual((await reopened.read(today)).meals, saved.meals);
-    assert.equal((await db.getFirstAsync('PRAGMA user_version')).user_version, 3);
+    assert.equal((await db.getFirstAsync('PRAGMA user_version')).user_version, 4);
     assert.deepEqual(await db.getAllAsync('PRAGMA foreign_key_check'), []);
     await repo.deleteMeal(imported.id);
     assert.equal((await db.getAllAsync('SELECT * FROM recipes')).length, 1);
@@ -311,10 +418,10 @@ test('current meal-based version 2 upgrades without changing logs, goals or reci
   await db.execAsync('ALTER TABLE meals DROP COLUMN nutrition_complete; PRAGMA user_version = 2;');
   const upgraded = createSQLiteRepository(createDatabaseService(async () => db));
   const saved = await upgraded.read(today);
-  assert.deepEqual(saved.meals, [meal()]);
+  assert.deepEqual(saved.meals, [meal(), ...sampleRecipes]);
   assert.equal(saved.loggedMeals[0].quantity, 2.5);
   assert.equal(saved.goal.proteinTarget, 100);
-  assert.equal((await db.getFirstAsync('PRAGMA user_version')).user_version, 3);
+  assert.equal((await db.getFirstAsync('PRAGMA user_version')).user_version, 4);
 });
 
 test('failed recipe-only migration rolls back source tables and retries safely', async (t) => {
@@ -363,7 +470,7 @@ test("version 1 migration preserves recipes, ingredients, goals and log IDs", as
   assert.equal(saved.loggedMeals[0].id, 42);
   assert.equal(saved.loggedMeals[0].quantity, 1);
   assert.deepEqual(await db.getAllAsync('PRAGMA foreign_key_check'), []);
-  assert.equal((await db.getFirstAsync('PRAGMA user_version')).user_version, 3);
+  assert.equal((await db.getFirstAsync('PRAGMA user_version')).user_version, 4);
 });
 
 test("quantities, categories and recorded dates stay isolated and update totals", async (t) => {
@@ -388,7 +495,7 @@ test("quantities, categories and recorded dates stay isolated and update totals"
   assert.equal(calorieProgress(2500, 2000).percent, 125);
   for (const log of saved.loggedMeals) await repo.deleteLog(log.id);
   assert.deepEqual((await repo.read(today)).recordedDates, ['2026-10-11']);
-  assert.equal((await repo.read(today)).meals.length, 1);
+  assert.equal((await repo.read(today)).meals.length, 1 + sampleRecipes.length);
 });
 
 test("failed migration rolls back and can retry without losing legacy data", async (t) => {

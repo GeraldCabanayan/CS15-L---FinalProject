@@ -1,6 +1,6 @@
 import { perServing, type Ingredient, type Meal } from './types';
 
-// Search the current SQLite-backed snapshot; never seed invented suggestions.
+// Search the current SQLite-backed snapshot, including persisted sample recipes.
 export function nameMatches<T extends { name: string }>(items: T[], query: string): T[] {
   const text = query.trim().toLocaleLowerCase();
   if (!text) return [];
