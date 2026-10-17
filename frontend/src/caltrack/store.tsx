@@ -8,7 +8,7 @@ import type { Meal, MealCategory, UserGoal } from "./types";
 type Store = CalTrackSnapshot & {
   isSaving: boolean;
   selectDate: (date: string) => Promise<void>;
-  addMeal: (meal: Meal) => Promise<void>;
+  addMeal: (meal: Meal, scheduledDate?: string) => Promise<void>;
   updateMeal: (meal: Meal) => Promise<void>;
   deleteMeal: (id: string) => Promise<void>;
   logMeal: (id: string, category: MealCategory, quantity?: number) => Promise<void>;
@@ -95,7 +95,9 @@ export function CalTrackProvider({ children, repository = calTrackRepository }: 
       validateDate(date);
       return run(async () => { selectedDate.current = date; });
     },
-    addMeal: (meal) => run(() => repository.createMeal(meal)),
+    // Capture the displayed date before joining the queue. A later date change
+    // must not move a meal that the user was creating for this date.
+    addMeal: (meal, scheduledDate = snapshot.date) => run(() => repository.createMeal(meal, scheduledDate)),
     updateMeal: (meal) => run(() => repository.updateMeal(meal)),
     deleteMeal: (id) => run(() => repository.deleteMeal(id)),
     logMeal: (id, category, quantity = 1) => run(() => repository.logMeal(id, category, snapshot.date, quantity)),

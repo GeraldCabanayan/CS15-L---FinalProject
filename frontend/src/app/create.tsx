@@ -41,11 +41,11 @@ export default function CreateMeal() {
 function MealForm({ existing, editing, addMeal, updateMeal, isSaving }: {
   existing?: Meal;
   editing: boolean;
-  addMeal: (meal: Meal) => Promise<void>;
+  addMeal: (meal: Meal, scheduledDate?: string) => Promise<void>;
   updateMeal: (meal: Meal) => Promise<void>;
   isSaving: boolean;
 }) {
-  const { meals } = useCalTrack();
+  const { meals, date } = useCalTrack();
   const [activeIngredient, setActiveIngredient] = useState<string | null>(null);
   const [nutritionDrafts, setNutritionDrafts] = useState<Record<string, string>>({});
   const [name, setName] = useState(existing?.name ?? "");
@@ -115,7 +115,7 @@ function MealForm({ existing, editing, addMeal, updateMeal, isSaving }: {
 
     setSaving(true);
     try {
-      await (editing ? updateMeal : addMeal)({
+      const meal: Meal = {
         id: existing?.id ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`,
         name: name.trim(),
         servings: Number(servings),
@@ -124,7 +124,9 @@ function MealForm({ existing, editing, addMeal, updateMeal, isSaving }: {
         ingredients,
         instructions: instructions.trim(),
         createdAt: existing?.createdAt ?? new Date().toISOString(),
-      });
+      };
+      if (editing) await updateMeal(meal);
+      else await addMeal(meal, date);
       router.replace("/recipes");
     } catch (error) {
       Alert.alert("Could not save recipe", errorMessage(error));

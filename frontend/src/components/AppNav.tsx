@@ -4,11 +4,10 @@ import { AnimatedPressable } from "./AnimatedPressable";
 
 const tabs = [
   { label: "Home", icon: "⌂", path: "/" },
-  { label: "Create", icon: "+", path: "/create" },
   { label: "Recipes", icon: "▣", path: "/recipes" },
+  { label: "Create", icon: "+", path: "/create" },
   { label: "Calendar", icon: "\u25a6", path: "/calendar" },
   { label: "Goals", icon: "◎", path: "/goals" },
-  { label: "Profile", icon: "\u25cb", path: "/profile"}
 ];
 
 export function AppNav() {

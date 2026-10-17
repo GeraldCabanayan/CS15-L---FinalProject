@@ -121,7 +121,7 @@ export function LogRecipe({ meal }: { meal: Meal }) {
   const { logMeal, loggedMeals, date, isSaving } = useCalTrack();
   const [open, setOpen] = useState(false);
   const [quantity, setQuantity] = useState('1');
-  const [category, setCategory] = useState<MealCategory>('breakfast');
+  const [category, setCategory] = useState<MealCategory>(meal.category ?? 'uncategorized');
   const duplicate = loggedMeals.some(
     (log) => log.mealId === meal.id && log.category === category,
   );

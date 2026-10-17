@@ -108,8 +108,8 @@ export default function Recipes() {
                   onPress={() => router.push({ pathname: "/create", params: { id: meal.id } })}>
                   <Text style={styles.logCategoryText}>Edit</Text>
                 </AnimatedPressable>
-                <AnimatedPressable disabled={isSaving} style={styles.logCategory} onPress={() => setDeleteId(meal.id)}>
-                  <Text style={styles.logCategoryText}>Delete</Text>
+                <AnimatedPressable disabled={isSaving} style={[styles.logCategory, styles.deleteButton]} onPress={() => setDeleteId(meal.id)}>
+                  <Text style={[styles.logCategoryText, styles.deleteText]}>Delete</Text>
                 </AnimatedPressable>
               </View>
               {deleteId === meal.id && <Animated.View
@@ -120,8 +120,8 @@ export default function Recipes() {
               >
                 <Text style={styles.logPickerLabel}>Delete this recipe and all its meal logs?</Text>
                 <View style={styles.logCategoryList}>
-                  <AnimatedPressable disabled={isSaving} style={styles.logCategory} onPress={() => remove(meal.id)}>
-                    <Text style={styles.logCategoryText}>Confirm delete</Text>
+                  <AnimatedPressable disabled={isSaving} style={[styles.logCategory, styles.deleteButton]} onPress={() => remove(meal.id)}>
+                    <Text style={[styles.logCategoryText, styles.deleteText]}>Confirm delete</Text>
                   </AnimatedPressable>
                   <AnimatedPressable style={styles.logCategory} onPress={() => setDeleteId(null)}>
                     <Text style={styles.logCategoryText}>Cancel</Text>
@@ -219,4 +219,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   logCategoryText: { color: "#008d00", fontSize: 12, fontWeight: "800" },
+  deleteButton: { borderColor: "#c62828" },
+  deleteText: { color: "#c62828" },
 });

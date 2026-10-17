@@ -33,10 +33,14 @@ function driver(filename = ":memory:") {
   let closed = false;
   const db = {
     failIngredient: false,
+    failLog: false,
     async execAsync(sql) { raw.exec(sql); },
     async runAsync(sql, ...params) {
       if (db.failIngredient && sql.includes("INSERT INTO ingredients")) {
         throw new Error("Simulated ingredient write failure");
+      }
+      if (db.failLog && sql.includes("INSERT INTO meal_logs")) {
+        throw new Error("Simulated meal log write failure");
       }
       const result = raw.prepare(sql).run(...params);
       return { changes: Number(result.changes), lastInsertRowId: Number(result.lastInsertRowid) };
@@ -73,6 +77,85 @@ function meal(id = "meal-1") {
   };
 }
 const today = "2026-10-10";
+
+test("scheduled creation supplies every diary category and calendar date immediately", async (t) => {
+  const { repo } = fixture(t);
+  const { mealCategories, dailyNutrition } = load('types.ts');
+  const scheduledDate = '2026-12-31';
+  for (const category of mealCategories) {
+    const created = { ...meal(category), category };
+    await repo.createMeal(created, scheduledDate);
+    const saved = await repo.read(scheduledDate);
+    const entry = saved.loggedMeals.find(log => log.mealId === created.id);
+    assert.equal(entry.category, category);
+    assert.equal(entry.date, scheduledDate);
+    assert.equal(entry.quantity, 1);
+    assert.deepEqual(saved.meals.find(item => item.id === created.id), created);
+    assert.deepEqual(saved.recordedDates, [scheduledDate]);
+  }
+  const saved = await repo.read(scheduledDate);
+  for (const category of mealCategories) {
+    const displayed = saved.loggedMeals.filter(log => log.category === category)
+      .map(log => saved.meals.find(item => item.id === log.mealId));
+    assert.deepEqual(displayed.map(item => item.id), [category]);
+  }
+  assert.equal(dailyNutrition(saved.meals, saved.loggedMeals).calories, 600);
+  assert.deepEqual((await repo.read(today)).loggedMeals, []);
+  assert.deepEqual((await repo.read('2027-01-01')).loggedMeals, []);
+});
+
+test("scheduled creation defaults missing categories and recipe edits preserve dated entries", async (t) => {
+  const { repo } = fixture(t);
+  const original = meal();
+  delete original.category;
+  await repo.createMeal(original, today);
+  let saved = await repo.read(today);
+  assert.equal(saved.meals[0].category, 'uncategorized');
+  assert.equal(saved.loggedMeals[0].category, 'uncategorized');
+  const entry = saved.loggedMeals[0];
+  const edited = { ...saved.meals[0], name: 'Edited meal', category: 'dinner', servings: 3 };
+  await repo.updateMeal(edited);
+  saved = await repo.read(today);
+  assert.deepEqual(saved.meals[0], edited);
+  // Recipe defaults and diary categories are independently editable.
+  assert.deepEqual(saved.loggedMeals, [entry]);
+  await repo.updateLog(entry.id, 'lunch', 2);
+  saved = await repo.read(today);
+  assert.equal(saved.loggedMeals[0].category, 'lunch');
+  assert.equal(saved.loggedMeals[0].quantity, 2);
+  assert.equal(load('types.ts').dailyNutrition(saved.meals, saved.loggedMeals).calories, 200);
+  await repo.deleteMeal(original.id);
+  assert.deepEqual((await repo.read(today)).loggedMeals, []);
+  assert.deepEqual((await repo.read(today)).recordedDates, []);
+});
+
+test("failed scheduling rolls back the recipe, ingredients and calendar marker", async (t) => {
+  const { repo, db } = fixture(t);
+  await repo.read(today);
+  db.failLog = true;
+  await assert.rejects(repo.createMeal(meal(), today), /meal log write failure/);
+  assert.deepEqual((await repo.read(today)).meals, sampleRecipes);
+  assert.deepEqual(await db.getAllAsync('SELECT * FROM ingredients WHERE meal_id = ?', 'meal-1'), []);
+  assert.deepEqual((await repo.read(today)).recordedDates, []);
+  db.failLog = false;
+  await repo.createMeal(meal(), today);
+  assert.equal((await repo.read(today)).loggedMeals.length, 1);
+  await assert.rejects(repo.createMeal(meal('invalid-date'), '2026-02-30'), /date/);
+  assert.equal((await repo.read(today)).meals.some(item => item.id === 'invalid-date'), false);
+});
+
+test("concurrent scheduled creates retain their own dates and categories", async (t) => {
+  const { repo } = fixture(t);
+  await Promise.all([
+    repo.createMeal({ ...meal('breakfast'), category: 'breakfast' }, today),
+    repo.createMeal({ ...meal('dinner'), category: 'dinner' }, '2026-10-11'),
+  ]);
+  const first = await repo.read(today);
+  const second = await repo.read('2026-10-11');
+  assert.deepEqual(first.loggedMeals.map(log => [log.mealId, log.category]), [['breakfast', 'breakfast']]);
+  assert.deepEqual(second.loggedMeals.map(log => [log.mealId, log.category]), [['dinner', 'dinner']]);
+  assert.deepEqual(first.recordedDates, [today, '2026-10-11']);
+});
 
 test("initialization seeds sample recipes and the default goal only once", async (t) => {
   const { repo, service, db } = fixture(t);
@@ -275,8 +358,7 @@ test("recipes, logs and goals survive a database close and reopen", async () => 
   let db = driver(filename);
   try {
     let repo = createSQLiteRepository(createDatabaseService(async () => db));
-    await repo.createMeal(meal());
-    await repo.logMeal("meal-1", "lunch", today);
+    await repo.createMeal(meal(), today);
     await repo.updateGoal({ calorieTarget: 1900, goal: "lose", proteinTarget: null, carbsTarget: null, fatTarget: null });
     await db.closeAsync();
     db = driver(filename);
@@ -284,6 +366,11 @@ test("recipes, logs and goals survive a database close and reopen", async () => 
     const saved = await repo.read(today);
     assert.deepEqual(saved.meals, [meal(), ...sampleRecipes]);
     assert.equal(saved.loggedMeals.length, 1);
+    assert.deepEqual(saved.loggedMeals.map(log => [log.mealId, log.category, log.date, log.quantity]), [
+      ['meal-1', 'lunch', today, 1],
+    ]);
+    assert.deepEqual(saved.recordedDates, [today]);
+    assert.deepEqual((await repo.read('2026-10-11')).loggedMeals, []);
     assert.deepEqual(saved.goal, { calorieTarget: 1900, goal: "lose", proteinTarget: null, carbsTarget: null, fatTarget: null });
   } finally {
     await db.closeAsync();
