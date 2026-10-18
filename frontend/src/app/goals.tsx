@@ -11,10 +11,10 @@ export default function Goals() {
   const [protein, setProtein] = useState(String(goal.proteinTarget ?? ""));
   const [carbs, setCarbs] = useState(String(goal.carbsTarget ?? ""));
   const [fat, setFat] = useState(String(goal.fatTarget ?? ""));
-  const [selected, setSelected] = useState(goal.goal);
+
   const save = async () => {
     try {
-      await updateGoal({ calorieTarget: Number(calories), goal: selected, proteinTarget: protein.trim() ? Number(protein) : null, carbsTarget: carbs.trim() ? Number(carbs) : null, fatTarget: fat.trim() ? Number(fat) : null });
+      await updateGoal({ calorieTarget: Number(calories), goal: goal.goal, proteinTarget: protein.trim() ? Number(protein) : null, carbsTarget: carbs.trim() ? Number(carbs) : null, fatTarget: fat.trim() ? Number(fat) : null });
       Alert.alert("Goals saved", "Your daily calorie target has been updated.");
     } catch (error) {
       Alert.alert("Could not save goals", errorMessage(error));
@@ -30,30 +30,6 @@ export default function Goals() {
         </Text>
 
         <DailyProgress />
-        <Text style={styles.label}>What are you working toward?</Text>
-        <View style={styles.options}>
-          {(["lose", "maintain", "gain"] as const).map((item) => (
-            <AnimatedPressable
-              key={item}
-              onPress={() => setSelected(item)}
-              style={[styles.option, selected === item && styles.selected]}
-            >
-              <Text
-                style={[
-                  styles.optionText,
-                  selected === item && styles.selectedText,
-                ]}
-              >
-                {item === "lose"
-                  ? "Lose weight"
-                  : item === "gain"
-                    ? "Gain weight"
-                    : "Maintain"}
-              </Text>
-            </AnimatedPressable>
-          ))}
-        </View>
-
         <Text style={styles.label}>Daily calorie target</Text>
         <View style={styles.inputWrap}>
           <TextInput
@@ -103,17 +79,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 30, fontWeight: "800", marginTop: 5 },
   subtitle: { color: "#777", marginTop: 6 },
   label: { fontWeight: "800", fontSize: 15, marginTop: 28, marginBottom: 10 },
-  options: { flexDirection: "row", gap: 8 },
-  option: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 13,
-    flex: 1,
-    alignItems: "center",
-  },
-  selected: { backgroundColor: "#00c100" },
-  optionText: { fontSize: 12, fontWeight: "700", color: "#555" },
-  selectedText: { color: "#fff" },
+
   inputWrap: {
     backgroundColor: "#fff",
     borderRadius: 14,

@@ -93,3 +93,6 @@ export function calorieProgress(consumed: number, target: number) {
 }
 
 export const mealCategories: MealCategory[] = ['breakfast', 'lunch', 'dinner', 'uncategorized'];
+export function categoryLabel(category: MealCategory): string {
+  return category.charAt(0).toUpperCase() + category.slice(1);
+}
