@@ -25,11 +25,33 @@ import {
 import { recommendRecipes } from '../caltrack/suggestions';
 import { AnimatedPressable } from './AnimatedPressable';
 
+
+
+
+
+
+
 const cardEntering = FadeInDown.duration(60);
 const cardExiting = FadeOutUp.duration(120);
 const itemEntering = FadeIn.duration(180);
 const itemExiting = FadeOut.duration(120);
 const diaryLayout = LinearTransition.duration(180);
+
+
+
+const macroLabels = {
+  protein: 'Protein',
+  carbs: 'Carbohydrates',
+  fat: 'Total Fat',
+} as const;
+
+const macroColors = {
+  protein: '#4da3ff',
+  carbs: '#ffb547',
+  fat: '#c084fc',
+} as const;
+
+
 
 export async function perform(action: () => Promise<void>) {
   try {
@@ -63,10 +85,16 @@ export function DailyProgress() {
         </Text>
       )}
       {(['protein', 'carbs', 'fat'] as const).map((key) => (
-        <Text key={key} style={diaryStyles.white}>
-          {key}: {total[key].toFixed(1)} g
-          {goal[`${key}Target`] != null ? ` / ${goal[`${key}Target`]} g` : ''}
-        </Text>
+        <View key={key} style={diaryStyles.macroRow}>
+          <View
+            accessible={false}
+            style={[diaryStyles.macroDot, { backgroundColor: macroColors[key] }]}
+          />
+          <Text style={diaryStyles.white}>
+            {macroLabels[key]}: {total[key].toFixed(1)} g
+            {goal[`${key}Target`] != null ? ` / ${goal[`${key}Target`]} g` : ''}
+          </Text>
+        </View>
       ))}
       <Text style={diaryStyles.white}>
         Fiber {total.fiber.toFixed(1)} g · Sugar {total.sugar.toFixed(1)} g · Sodium{' '}
@@ -81,6 +109,7 @@ export function DailyProgress() {
     </Animated.View>
   );
 }
+
 
 function AnimatedCalorieBar({ percent, over }: { percent: number; over: boolean }) {
   const [trackWidth, setTrackWidth] = useState(0);
@@ -219,7 +248,6 @@ function DiaryEntry({ meal, entry }: { meal: Meal; entry: LoggedMeal }) {
     <Animated.View
       entering={cardEntering}
       exiting={cardExiting}
-      layout={diaryLayout}
       style={[diaryStyles.card, cardAnimatedStyle]}
     >
       <AnimatedPressable
@@ -259,7 +287,6 @@ function DiaryEntry({ meal, entry }: { meal: Meal; entry: LoggedMeal }) {
         <Animated.View
           entering={cardEntering}
           exiting={cardExiting}
-          layout={diaryLayout}
           style={diaryStyles.actionPanel}
         >
           <View style={diaryStyles.actionRow}>
@@ -461,8 +488,18 @@ export const diaryStyles = StyleSheet.create({
     borderRadius: 24,
   },
   white: {
-    color: '#fff',
+    color: '#ffffff',
     lineHeight: 21,
+  },
+  macroRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  macroDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 999,
   },
   value: {
     fontSize: 26,
