@@ -14,7 +14,6 @@ import Animated, {
 import { errorMessage, useCalTrack } from '../caltrack/store';
 import {
   calorieProgress,
-  categoryLabel,
   dailyNutrition,
   mealCategories,
   perServing,
@@ -25,8 +24,10 @@ import {
 } from '../caltrack/types';
 import { recommendRecipes } from '../caltrack/suggestions';
 import { AnimatedPressable } from './AnimatedPressable';
-import { RecipeDetails } from './RecipeDetails';
-import { RecipeSuggestions } from './RecipeSuggestions';
+
+
+
+
 
 const cardEntering = FadeInDown.duration(60);
 const cardExiting = FadeOutUp.duration(120);
@@ -34,18 +35,28 @@ const itemEntering = FadeIn.duration(180);
 const itemExiting = FadeOut.duration(120);
 const diaryLayout = LinearTransition.duration(180);
 
+
+
+const macroLabels = {
+  protein: 'Protein',
+  carbs: 'Carbohydrates',
+  fat: 'Total Fat',
+} as const;
+
+const macroColors = {
+  protein: '#4da3ff',
+  carbs: '#ffb547',
+  fat: '#c084fc',
+} as const;
+
+
+
 export async function perform(action: () => Promise<void>) {
   try {
     await action();
   } catch (error) {
     Alert.alert('Could not save changes', errorMessage(error));
   }
-}
-function formatPercent(percent: number) {
-  if (!Number.isFinite(percent) || percent <= 0) return '0';
-  if (percent < 1) return Math.max(percent, 0.01).toFixed(2); // 0.08, never "0"
-  if (percent < 10) return percent.toFixed(1);                // 4.6
-  return String(Math.round(percent));                         // 45
 }
 
 export function DailyProgress() {
@@ -63,7 +74,7 @@ export function DailyProgress() {
         {Math.round(total.calories)} / {goal.calorieTarget} kcal
       </Text>
       <Text style={diaryStyles.white}>
-        {Math.round(progress.remaining)} remaining · {formatPercent(progress.percent)}% consumed
+        {Math.round(progress.remaining)} remaining · {Math.round(progress.percent)}% consumed
       </Text>
       <AnimatedCalorieBar percent={progress.percent} over={progress.over > 0} />
       {progress.over > 0 && (
@@ -71,15 +82,14 @@ export function DailyProgress() {
           {Math.round(progress.over)} kcal above target
         </Text>
       )}
-      {([
-        { key: 'protein', label: 'Protein', color: '#42a5f5' },
-        { key: 'carbs', label: 'Carbohydrates', color: '#ffb74d' },
-        { key: 'fat', label: 'Total Fat', color: '#ba68c8' },
-      ] as const).map(({ key, label, color }) => (
-        <View key={key} style={diaryStyles.nutrientRow}>
-          <View accessible={false} style={[diaryStyles.nutrientDot, { backgroundColor: color }]} />
-          <Text style={[diaryStyles.white, diaryStyles.nutrientText]}>
-            {label}: {total[key].toFixed(1)} g
+      {(['protein', 'carbs', 'fat'] as const).map((key) => (
+        <View key={key} style={diaryStyles.macroRow}>
+          <View
+            accessible={false}
+            style={[diaryStyles.macroDot, { backgroundColor: macroColors[key] }]}
+          />
+          <Text style={diaryStyles.white}>
+            {macroLabels[key]}: {total[key].toFixed(1)} g
             {goal[`${key}Target`] != null ? ` / ${goal[`${key}Target`]} g` : ''}
           </Text>
         </View>
@@ -98,15 +108,16 @@ export function DailyProgress() {
   );
 }
 
+
 function AnimatedCalorieBar({ percent, over }: { percent: number; over: boolean }) {
   const [trackWidth, setTrackWidth] = useState(0);
   const progress = useSharedValue(0);
 
   useEffect(() => {
-  const clamped = Math.min(Math.max(percent, 0), 100);
-  const shown = clamped > 0 ? Math.max(clamped, 1) : 0; // any calories show at least 1% of the bar
-  progress.value = withTiming(shown / 100, { duration: 500 });
-}, [percent, progress]);
+    progress.value = withTiming(Math.min(Math.max(percent, 0), 100) / 100, {
+      duration: 500,
+    });
+  }, [percent, progress]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     width: trackWidth * progress.value,
@@ -135,7 +146,7 @@ export function LogRecipe({ meal }: { meal: Meal }) {
   const { logMeal, loggedMeals, date, isSaving } = useCalTrack();
   const [open, setOpen] = useState(false);
   const [quantity, setQuantity] = useState('1');
-  const [category, setCategory] = useState<MealCategory>(meal.category ?? 'uncategorized');
+  const [category, setCategory] = useState<MealCategory>('breakfast');
   const duplicate = loggedMeals.some(
     (log) => log.mealId === meal.id && log.category === category,
   );
@@ -235,7 +246,6 @@ function DiaryEntry({ meal, entry }: { meal: Meal; entry: LoggedMeal }) {
     <Animated.View
       entering={cardEntering}
       exiting={cardExiting}
-      layout={diaryLayout}
       style={[diaryStyles.card, cardAnimatedStyle]}
     >
       <AnimatedPressable
@@ -275,7 +285,6 @@ function DiaryEntry({ meal, entry }: { meal: Meal; entry: LoggedMeal }) {
         <Animated.View
           entering={cardEntering}
           exiting={cardExiting}
-          layout={diaryLayout}
           style={diaryStyles.actionPanel}
         >
           <View style={diaryStyles.actionRow}>
@@ -329,7 +338,7 @@ function DiaryEntry({ meal, entry }: { meal: Meal; entry: LoggedMeal }) {
   );
 }
 
-export function DailyDiary({ showRecipeSuggestions = true }: { showRecipeSuggestions?: boolean }) {
+export function DailyDiary() {
   const { meals, loggedMeals, goal } = useCalTrack();
   const [suggesting, setSuggesting] = useState(false);
   const remaining = calorieProgress(
@@ -341,14 +350,13 @@ export function DailyDiary({ showRecipeSuggestions = true }: { showRecipeSuggest
   return (
     <View style={{ gap: 12 }}>
       <DailyProgress />
-      {showRecipeSuggestions && <RecipeSuggestions />}
       <Link href="/recipes" style={diaryStyles.link}>
         Browse saved recipes to add a meal
       </Link>
 
       {mealCategories.map((category) => (
         <Animated.View key={category} layout={diaryLayout}>
-          <Text style={diaryStyles.title}>{categoryLabel(category)}</Text>
+          <Text style={diaryStyles.title}>{category}</Text>
           {!loggedMeals.some((log) => log.category === category) && (
             <Text style={diaryStyles.muted}>No meals logged.</Text>
           )}
@@ -363,14 +371,14 @@ export function DailyDiary({ showRecipeSuggestions = true }: { showRecipeSuggest
         </Animated.View>
       ))}
 
-      {showRecipeSuggestions && <AnimatedPressable
+      <AnimatedPressable
         style={diaryStyles.button}
         onPress={() => setSuggesting(!suggesting)}
       >
         <Text style={diaryStyles.link}>Suggest recipes for this date</Text>
-      </AnimatedPressable>}
+      </AnimatedPressable>
 
-      {showRecipeSuggestions && suggesting && (
+      {suggesting && (
         <Animated.View
           entering={cardEntering}
           exiting={cardExiting}
@@ -403,7 +411,6 @@ export function DailyDiary({ showRecipeSuggestions = true }: { showRecipeSuggest
                   Imported recipe: macro values have not been recorded.
                 </Text>
               )}
-              <RecipeDetails meal={meal} collapsible />
               <LogRecipe meal={meal} />
             </Animated.View>
           ))}
@@ -479,21 +486,18 @@ export const diaryStyles = StyleSheet.create({
     borderRadius: 24,
   },
   white: {
-    color: '#fff',
+    color: '#ffffff',
     lineHeight: 21,
   },
-  nutrientRow: {
+  macroRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  nutrientDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  nutrientText: {
-    flex: 1,
+  macroDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 999,
   },
   value: {
     fontSize: 26,
