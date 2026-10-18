@@ -14,6 +14,7 @@ import Animated, {
 import { errorMessage, useCalTrack } from '../caltrack/store';
 import {
   calorieProgress,
+  categoryLabel,
   dailyNutrition,
   mealCategories,
   perServing,
@@ -40,6 +41,12 @@ export async function perform(action: () => Promise<void>) {
     Alert.alert('Could not save changes', errorMessage(error));
   }
 }
+function formatPercent(percent: number) {
+  if (!Number.isFinite(percent) || percent <= 0) return '0';
+  if (percent < 1) return Math.max(percent, 0.01).toFixed(2); // 0.08, never "0"
+  if (percent < 10) return percent.toFixed(1);                // 4.6
+  return String(Math.round(percent));                         // 45
+}
 
 export function DailyProgress() {
   const { meals, loggedMeals, goal } = useCalTrack();
@@ -56,7 +63,7 @@ export function DailyProgress() {
         {Math.round(total.calories)} / {goal.calorieTarget} kcal
       </Text>
       <Text style={diaryStyles.white}>
-        {Math.round(progress.remaining)} remaining · {Math.round(progress.percent)}% consumed
+        {Math.round(progress.remaining)} remaining · {formatPercent(progress.percent)}% consumed
       </Text>
       <AnimatedCalorieBar percent={progress.percent} over={progress.over > 0} />
       {progress.over > 0 && (
@@ -96,10 +103,10 @@ function AnimatedCalorieBar({ percent, over }: { percent: number; over: boolean 
   const progress = useSharedValue(0);
 
   useEffect(() => {
-    progress.value = withTiming(Math.min(Math.max(percent, 0), 100) / 100, {
-      duration: 500,
-    });
-  }, [percent, progress]);
+  const clamped = Math.min(Math.max(percent, 0), 100);
+  const shown = clamped > 0 ? Math.max(clamped, 1) : 0; // any calories show at least 1% of the bar
+  progress.value = withTiming(shown / 100, { duration: 500 });
+}, [percent, progress]);
 
   const animatedStyle = useAnimatedStyle(() => ({
     width: trackWidth * progress.value,
@@ -341,7 +348,7 @@ export function DailyDiary({ showRecipeSuggestions = true }: { showRecipeSuggest
 
       {mealCategories.map((category) => (
         <Animated.View key={category} layout={diaryLayout}>
-          <Text style={diaryStyles.title}>{category}</Text>
+          <Text style={diaryStyles.title}>{categoryLabel(category)}</Text>
           {!loggedMeals.some((log) => log.category === category) && (
             <Text style={diaryStyles.muted}>No meals logged.</Text>
           )}

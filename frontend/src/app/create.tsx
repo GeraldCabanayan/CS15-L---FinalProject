@@ -6,7 +6,7 @@ import { ingredientMatches, nameMatches } from "../caltrack/suggestions";
 import { AppNav } from "../components/AppNav";
 import { AnimatedPressable } from "../components/AnimatedPressable";
 import { errorMessage, useCalTrack } from "../caltrack/store";
-import { emptyNutrition, mealCategories, sumNutrition, type Ingredient, type Meal, type MealCategory } from "../caltrack/types";
+import { emptyNutrition, categoryLabel, mealCategories, sumNutrition, type Ingredient, type Meal, type MealCategory } from "../caltrack/types";
 
 
 
@@ -232,7 +232,7 @@ function MealForm({ existing, editing, addMeal, updateMeal, isSaving }: {
             aria-checked={category === value}
             style={[styles.category, category === value && styles.categorySelected]}
             onPress={() => { setCategory(value); setShowRecipeSuggestions(false); }}>
-            <Text style={[styles.categoryText, category === value && styles.categoryTextSelected]}>{value}</Text>
+            <Text style={[styles.categoryText, category === value && styles.categoryTextSelected]}>{categoryLabel(value)}</Text>
           </AnimatedPressable>)}
         </View>
 
