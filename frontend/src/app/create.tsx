@@ -49,7 +49,7 @@ function MealForm({ existing, editing, addMeal, updateMeal, isSaving }: {
   const [activeIngredient, setActiveIngredient] = useState<string | null>(null);
   const [nutritionDrafts, setNutritionDrafts] = useState<Record<string, string>>({});
   const [name, setName] = useState(existing?.name ?? "");
-  const [showRecipeSuggestions, setShowRecipeSuggestions] = useState(!existing?.name);
+  const [showRecipeSuggestions, setShowRecipeSuggestions] = useState(false);
   const [recipeQuery, setRecipeQuery] = useState('');
   const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(existing?.id ?? null);
   const [category, setCategory] = useState<MealCategory>(existing?.category ?? 'uncategorized');
@@ -63,6 +63,7 @@ function MealForm({ existing, editing, addMeal, updateMeal, isSaving }: {
   const recipeOptions = useMemo(() => recipeQuery.trim()
     ? nameMatches(meals, recipeQuery)
     : [...meals].sort((a, b) => a.name.localeCompare(b.name)), [meals, recipeQuery]);
+    const recipeListOpen = showRecipeSuggestions && recipeOptions.length > 0;
 
   const selectRecipe = (recipe: Meal) => {
     // Copy editable values only. Saving keeps the current destination's identity;
@@ -155,14 +156,14 @@ function MealForm({ existing, editing, addMeal, updateMeal, isSaving }: {
         </View>}
 
         <Text style={styles.label}>Meal name</Text>
-        <View style={[styles.recipeSelect, showRecipeSuggestions && styles.recipeSelectOpen]}>
-        <View style={[styles.recipeSelectField, showRecipeSuggestions && styles.recipeSelectFieldOpen]}>
+        <View style={[styles.recipeSelect, recipeListOpen && styles.recipeSelectFieldOpen]}>
+        <View style={[styles.recipeSelectField, recipeListOpen && styles.recipeSelectFieldOpen]}>
         <TextInput
           accessibilityLabel="Meal name"
           placeholder="e.g. Sunday pasta"
           placeholderTextColor="rgba(2, 2, 2, 0.5)"
           value={name ?? ""}
-          onFocus={() => { setShowRecipeSuggestions(true); setActiveIngredient(null); }}
+          onFocus={() => { setActiveIngredient(null); }}
           onChangeText={(value) => {
             setName(value);
             setRecipeQuery(value);
@@ -189,7 +190,7 @@ function MealForm({ existing, editing, addMeal, updateMeal, isSaving }: {
           <Text style={styles.selectChevron}>{showRecipeSuggestions ? '▴' : '▾'}</Text>
         </AnimatedPressable>
         </View>
-        {showRecipeSuggestions && <View style={styles.suggestions}>
+        {recipeListOpen && <View style={styles.suggestions}>
           <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled" style={styles.suggestionList}>
             <AnimatedPressable accessibilityRole="button" accessibilityLabel="Keep entering a custom meal"
               pressedScale={1} style={[styles.suggestionOption, !selectedRecipeId && styles.suggestionSelected]}
@@ -197,9 +198,7 @@ function MealForm({ existing, editing, addMeal, updateMeal, isSaving }: {
               <Text style={styles.selectionCheck}>{!selectedRecipeId ? '✓' : ''}</Text>
               <Text style={[styles.suggestionText, !selectedRecipeId && styles.suggestionSelectedText]}>Select a recipe</Text>
             </AnimatedPressable>
-            {!recipeOptions.length && <Text style={styles.suggestionHint}>
-              {meals.length ? 'No matching recipes. Keep typing to create your own meal.' : 'No saved recipes yet. Enter your meal details below.'}
-            </Text>}
+
             {recipeOptions.map(recipe => <AnimatedPressable key={recipe.id}
               accessibilityRole="button" accessibilityLabel={`Use recipe ${recipe.name}`}
               accessibilityState={{ selected: selectedRecipeId === recipe.id }}
@@ -263,9 +262,8 @@ function MealForm({ existing, editing, addMeal, updateMeal, isSaving }: {
               />
             </View>
 
-            {activeIngredient === item.id && item.name.trim().length > 0 && <View>
+            {activeIngredient === item.id && item.name.trim().length > 0 && ingredientMatches(meals, item.name).length > 0 && <View>
               <Text style={styles.fieldLabel}>Saved ingredients: nutrition is for the displayed amount</Text>
-              {ingredientMatches(meals, item.name).length === 0 && <Text>No saved match. Enter this ingredient manually.</Text>}
               {ingredientMatches(meals, item.name).map((match, matchIndex) => <AnimatedPressable key={matchIndex}
                 style={{ minHeight: 44, paddingVertical: 10 }} onPress={() => {
                   if (meals.some((meal) => meal.nutritionComplete === false && meal.ingredients.includes(match))) setNutritionComplete(false);
