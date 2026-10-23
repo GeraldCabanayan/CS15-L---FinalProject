@@ -368,6 +368,7 @@ const calendarStyles = StyleSheet.create({
     zIndex: 1,
   },
   calendarHeader: {
+    ...cardSurface,
     zIndex: 2,
     gap: 8,
     padding: 14,
@@ -429,6 +430,11 @@ const calendarStyles = StyleSheet.create({
     fontWeight: '700',
   },
   calendarGrid: {
+    ...cardSurface,
+    backgroundColor: '#fff',
+    borderRadius: 18,
+    padding: 10,
+    rowGap: 4,
     flexDirection: 'row',
     flexWrap: 'wrap',
   },
@@ -453,3 +459,4 @@ const calendarStyles = StyleSheet.create({
 });
 import { ScreenHeading } from '../../components/ScreenHeading';
 import { AppBackground } from '../../components/AppBackground';
+import { cardSurface } from '../../components/surfaceStyles';

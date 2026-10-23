@@ -56,6 +56,7 @@ export default function Recipes() {
 
         <TextInput accessibilityLabel="Search saved recipes" placeholder="Search saved recipes" placeholderTextColor="rgba(0, 0, 0, 0.5)" value={query} 
         onChangeText={setQuery} style={{ 
+          ...cardSurface,
           minHeight: 48,
           padding: 12,
           backgroundColor: "#fff",
@@ -174,6 +175,7 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: "#fff",
     borderRadius: 20,
+    ...cardSurface,
     padding: 16,
     marginTop: 18,
   },
@@ -203,6 +205,7 @@ const styles = StyleSheet.create({
   logText: { color: "#fff", fontWeight: "800" },
   loggedText: { color: "#008d00" },
   logPicker: {
+    ...cardSurface,
     backgroundColor: "#f4faf4",
     borderRadius: 11,
     marginTop: 10,
@@ -226,3 +229,4 @@ const styles = StyleSheet.create({
 });
 import { ScreenHeading } from '../../components/ScreenHeading';
 import { AppBackground } from '../../components/AppBackground';
+import { cardSurface } from '../../components/surfaceStyles';

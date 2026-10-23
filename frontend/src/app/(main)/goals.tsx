@@ -83,6 +83,7 @@ const styles = StyleSheet.create({
   label: { fontWeight: "800", fontSize: 15, marginTop: 28, marginBottom: 10 },
 
   inputWrap: {
+    ...cardSurface,
     backgroundColor: "#fff",
     borderRadius: 14,
     flexDirection: "row",
@@ -92,6 +93,7 @@ const styles = StyleSheet.create({
   input: { flex: 1, fontSize: 23, fontWeight: "800", paddingVertical: 16 },
   kcal: { color: "#888" },
   tip: {
+    ...cardSurface,
     backgroundColor: "#fff3df",
     borderRadius: 16,
     padding: 16,
@@ -110,3 +112,4 @@ const styles = StyleSheet.create({
 });
 import { ScreenHeading } from '../../components/ScreenHeading';
 import { AppBackground } from '../../components/AppBackground';
+import { cardSurface } from '../../components/surfaceStyles';
