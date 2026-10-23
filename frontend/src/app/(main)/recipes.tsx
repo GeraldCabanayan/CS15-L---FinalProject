@@ -13,13 +13,13 @@ import Animated, {
   FadeOutUp,
   LinearTransition,
 } from "react-native-reanimated";
-import { AppNav } from "../components/AppNav";
-import { AnimatedPressable } from "../components/AnimatedPressable";
-import { errorMessage, useCalTrack } from "../caltrack/store";
-import { LogRecipe } from "../components/DailyDiary";
-import { RecipeDetails } from "../components/RecipeDetails";
-import { nameMatches } from "../caltrack/suggestions";
-import { perServing } from "../caltrack/types";
+import { AppNav } from "../../components/AppNav";
+import { AnimatedPressable } from "../../components/AnimatedPressable";
+import { errorMessage, useCalTrack } from "../../caltrack/store";
+import { LogRecipe } from "../../components/DailyDiary";
+import { RecipeDetails } from "../../components/RecipeDetails";
+import { nameMatches } from "../../caltrack/suggestions";
+import { perServing } from "../../caltrack/types";
 
 const cardEntering = FadeInDown.duration(180);
 const cardExiting = FadeOutUp.duration(140);
@@ -40,10 +40,12 @@ export default function Recipes() {
   };
 
   return (
-    <View style={styles.screen}>
+<AppBackground style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.eyebrow}>YOUR COLLECTION</Text>
-        <Text style={styles.title}>Saved recipes</Text>
+        <ScreenHeading>
+          <Text style={styles.eyebrow}>YOUR COLLECTION</Text>
+          <Text style={styles.title}>Saved recipes</Text>
+        </ScreenHeading>
         <Text style={styles.subtitle}>
           Your go-to meals, ready when you are.
         </Text>
@@ -135,7 +137,7 @@ export default function Recipes() {
         })}
       </ScrollView>
       <AppNav />
-    </View>
+  </AppBackground>
   );
 }
 
@@ -149,7 +151,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: "#fafafa" },
+  screen: { flex: 1, backgroundColor: "transparent" },
   content: { padding: 22, paddingBottom: 30 },
   eyebrow: {
     color: "#00a900",
@@ -222,3 +224,5 @@ const styles = StyleSheet.create({
   deleteButton: { borderColor: "#c62828" },
   deleteText: { color: "#c62828" },
 });
+import { ScreenHeading } from '../../components/ScreenHeading';
+import { AppBackground } from '../../components/AppBackground';

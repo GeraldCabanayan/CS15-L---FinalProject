@@ -15,12 +15,12 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
-import { calendarDateKey, calendarMonth } from '../caltrack/calendar';
-import { localDate } from '../caltrack/repository';
-import { errorMessage, useCalTrack } from '../caltrack/store';
-import { AnimatedPressable } from '../components/AnimatedPressable';
-import { AppNav } from '../components/AppNav';
-import { DailyDiary, diaryStyles as styles, perform } from '../components/DailyDiary';
+import { calendarDateKey, calendarMonth } from '../../caltrack/calendar';
+import { localDate } from '../../caltrack/repository';
+import { errorMessage, useCalTrack } from '../../caltrack/store';
+import { AnimatedPressable } from '../../components/AnimatedPressable';
+import { AppNav } from '../../components/AppNav';
+import { DailyDiary, diaryStyles as styles, perform } from '../../components/DailyDiary';
 
 const monthFromLeft = FadeInLeft.duration(180);
 const monthFromRight = FadeInRight.duration(180);
@@ -117,12 +117,13 @@ export default function Calendar() {
   };
 
   return (
-    <View style={styles.screen}>
+<AppBackground style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content}>
+        <ScreenHeading>
+          <Text style={styles.title}>Meal calendar</Text>
+        </ScreenHeading>
         <View style={calendarStyles.searchSection}>
           <View style={calendarStyles.calendarHeader}>
-            <Text style={styles.title}>Meal calendar</Text>
-
             <View
               style={[
                 styles.row,
@@ -307,7 +308,7 @@ export default function Calendar() {
       </ScrollView>
 
       <AppNav />
-    </View>
+  </AppBackground>
   );
 }
 
@@ -450,3 +451,5 @@ const calendarStyles = StyleSheet.create({
     fontSize: 10,
   },
 });
+import { ScreenHeading } from '../../components/ScreenHeading';
+import { AppBackground } from '../../components/AppBackground';

@@ -1,6 +1,6 @@
 import { Link } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Platform, StyleSheet, Text, TextInput, View, type ViewStyle } from 'react-native';
 import Animated, {
   FadeIn,
   FadeInDown,
@@ -34,6 +34,11 @@ const cardExiting = FadeOutUp.duration(120);
 const itemEntering = FadeIn.duration(180);
 const itemExiting = FadeOut.duration(120);
 const diaryLayout = LinearTransition.duration(180);
+
+const nutritionGradient = 'linear-gradient(135deg, #101312 0%, #101713 55%, #1b4026 100%)';
+const nutritionBackground: ViewStyle = Platform.OS === 'web'
+  ? ({ backgroundImage: nutritionGradient } as ViewStyle)
+  : { experimental_backgroundImage: nutritionGradient };
 
 
 
@@ -76,6 +81,16 @@ export function DailyProgress() {
 
   return (
     <Animated.View entering={itemEntering} layout={diaryLayout} style={diaryStyles.hero}>
+      <View
+        pointerEvents="none"
+        accessible={false}
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        style={diaryStyles.heroDecoration}
+      >
+        <View style={diaryStyles.heroOuterCurve} />
+        <View style={diaryStyles.heroInnerCurve} />
+      </View>
       <Text style={diaryStyles.white}>Nutrition Profile</Text>
       <Text style={diaryStyles.value}>
         {Math.round(total.calories)} / {goal.calorieTarget} kcal
@@ -437,7 +452,7 @@ export function DailyDiary() {
 export const diaryStyles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#fafafa',
+    backgroundColor: 'transparent',
   },
   content: {
     padding: 22,
@@ -490,8 +505,38 @@ export const diaryStyles = StyleSheet.create({
   hero: {
     padding: 20,
     gap: 10,
-    backgroundColor: '#111',
+    backgroundColor: '#101713',
+    ...nutritionBackground,
     borderRadius: 24,
+    overflow: 'hidden',
+    boxShadow: '0px 8px 24px rgba(18, 85, 40, 0.2)',
+  },
+  heroDecoration: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+  },
+  heroOuterCurve: {
+    position: 'absolute',
+    width: 300,
+    height: 185,
+    right: -130,
+    bottom: -60,
+    borderRadius: 150,
+    transform: [{ rotate: '-35deg' }],
+    backgroundColor: 'rgba(80, 155, 55, 0.26)',
+  },
+  heroInnerCurve: {
+    position: 'absolute',
+    width: 250,
+    height: 145,
+    right: -125,
+    bottom: -65,
+    borderRadius: 130,
+    transform: [{ rotate: '-35deg' }],
+    backgroundColor: 'rgba(60, 170, 65, 0.38)',
   },
   white: {
     color: '#ffffff',
