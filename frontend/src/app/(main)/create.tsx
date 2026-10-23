@@ -359,6 +359,7 @@ const styles = StyleSheet.create({
   subtitle: { color: "#777", marginTop: 6, lineHeight: 20 },
   label: { fontWeight: "800", marginTop: 22, marginBottom: 8 },
   input: {
+    ...cardSurface,
     backgroundColor: "#fff",
     borderRadius: 12,
     padding: 14,
@@ -418,6 +419,7 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 19, fontWeight: "800" },
   total: { color: "#00a900", fontWeight: "800" },
   ingredient: {
+    ...cardSurface,
     backgroundColor: "#fff",
     borderRadius: 17,
     padding: 13,
@@ -463,6 +465,7 @@ const styles = StyleSheet.create({
   },
   addText: { color: "#00a900", fontWeight: "800" },
   summary: {
+    ...darkCardSurface,
     backgroundColor: "#111",
     borderRadius: 17,
     padding: 17,
@@ -483,3 +486,4 @@ const styles = StyleSheet.create({
 });
 import { ScreenHeading } from '../../components/ScreenHeading';
 import { AppBackground } from '../../components/AppBackground';
+import { cardSurface, darkCardSurface } from '../../components/surfaceStyles';

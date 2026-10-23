@@ -24,6 +24,7 @@ import {
 } from '../caltrack/types';
 import { recommendRecipes } from '../caltrack/suggestions';
 import { AnimatedPressable } from './AnimatedPressable';
+import { cardSurface, darkCardSurface } from './surfaceStyles';
 
 
 
@@ -470,6 +471,7 @@ export const diaryStyles = StyleSheet.create({
     gap: 8,
     backgroundColor: '#fff',
     borderRadius: 16,
+    ...cardSurface,
     marginVertical: 6,
   },
   cardSummary: {
@@ -509,7 +511,7 @@ export const diaryStyles = StyleSheet.create({
     ...nutritionBackground,
     borderRadius: 24,
     overflow: 'hidden',
-    boxShadow: '0px 8px 24px rgba(18, 85, 40, 0.2)',
+    ...darkCardSurface,
   },
   heroDecoration: {
     position: 'absolute',

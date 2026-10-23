@@ -6,6 +6,7 @@ import { nameMatches } from '../caltrack/suggestions';
 import { perServing } from '../caltrack/types';
 import { AnimatedPressable } from './AnimatedPressable';
 import { RecipeDetails } from './RecipeDetails';
+import { cardSurface } from './surfaceStyles';
 
 export function RecipeSuggestions() {
   const { meals } = useCalTrack();
@@ -54,7 +55,13 @@ export function RecipeSuggestions() {
 }
 
 const styles = StyleSheet.create({
-  card: { padding: 16, gap: 12, backgroundColor: '#fff', borderRadius: 16 },
+  card: {
+    padding: 16,
+    gap: 12,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    ...cardSurface,
+  },
   title: { fontSize: 18, fontWeight: '800', color: '#171717' },
   muted: { color: '#666', lineHeight: 21 },
   link: { color: '#007d00', fontWeight: '700' },
