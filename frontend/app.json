@@ -28,9 +28,9 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
-          "image": "./src/assets/images/splash-icon.png",
-          "imageWidth": 76
+          "backgroundColor": "#ffffff",
+          "image": "./src/assets/images/caltrack-logo.webp",
+          "imageWidth": 280
         }
       ],
       "expo-sqlite"

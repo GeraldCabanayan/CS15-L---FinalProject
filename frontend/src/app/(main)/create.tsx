@@ -2,11 +2,11 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
 import { Alert, ScrollView, StyleSheet, Text, TextInput, View, } from "react-native";
-import { ingredientMatches, nameMatches } from "../caltrack/suggestions";
-import { AppNav } from "../components/AppNav";
-import { AnimatedPressable } from "../components/AnimatedPressable";
-import { errorMessage, useCalTrack } from "../caltrack/store";
-import { emptyNutrition, categoryLabel, mealCategories, sumNutrition, type Ingredient, type Meal, type MealCategory } from "../caltrack/types";
+import { ingredientMatches, nameMatches } from "../../caltrack/suggestions";
+import { AppNav } from "../../components/AppNav";
+import { AnimatedPressable } from "../../components/AnimatedPressable";
+import { errorMessage, useCalTrack } from "../../caltrack/store";
+import { emptyNutrition, categoryLabel, mealCategories, sumNutrition, type Ingredient, type Meal, type MealCategory } from "../../caltrack/types";
 
 
 
@@ -137,13 +137,14 @@ function MealForm({ existing, editing, addMeal, updateMeal, isSaving }: {
   };
 
   return (
-    <View style={styles.screen}>
+<AppBackground style={styles.screen}>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content}>
-        <AnimatedPressable onPress={() => router.back()}>
-          <Text style={styles.back}>‹ Back</Text>
-        </AnimatedPressable>
-
-        <Text style={styles.title}>{editing ? "Edit a meal" : "Create a meal"}</Text>
+        <ScreenHeading>
+          <AnimatedPressable onPress={() => router.back()}>
+            <Text style={styles.back}>‹ Back</Text>
+          </AnimatedPressable>
+          <Text style={styles.title}>{editing ? "Edit a meal" : "Create a meal"}</Text>
+        </ScreenHeading>
         <Text style={styles.subtitle}>
           Build a recipe and know exactly what is on your plate.
         </Text>
@@ -341,12 +342,12 @@ function MealForm({ existing, editing, addMeal, updateMeal, isSaving }: {
         </AnimatedPressable>
       </ScrollView>
       <AppNav />
-    </View>
+  </AppBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: "#fafafa" },
+  screen: { flex: 1, backgroundColor: "transparent" },
   content: { padding: 22, paddingBottom: 40 },
   back: {
     color: "#00a900",
@@ -480,3 +481,5 @@ const styles = StyleSheet.create({
   },
   saveText: { color: "#fff", fontWeight: "800", fontSize: 16 },
 });
+import { ScreenHeading } from '../../components/ScreenHeading';
+import { AppBackground } from '../../components/AppBackground';

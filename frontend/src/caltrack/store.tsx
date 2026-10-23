@@ -115,7 +115,7 @@ export function useCalTrack() {
 }
 
 const styles = StyleSheet.create({
-  status: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24, gap: 16, backgroundColor: "#fafafa" },
+  status: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24, gap: 16, backgroundColor: "transparent" },
   title: { fontSize: 20, fontWeight: "800" },
   retry: { color: "#00a900", padding: 12, fontWeight: "800" },
 });

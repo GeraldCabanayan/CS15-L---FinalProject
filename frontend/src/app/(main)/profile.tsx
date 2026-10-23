@@ -1,20 +1,25 @@
 import { Text, StyleSheet, View } from 'react-native';
-import { AppNav } from '../components/AppNav';
+import { AppNav } from '../../components/AppNav';
 export default function Profile(){
     return(
-        <View style={styles.container}>
-            <Text style={styles.text}>Dexter Gamayot @ da back</Text>
+        <AppBackground style={styles.container}>
+            <View style={styles.heading}>
+                <ScreenHeading>
+                    <Text style={styles.text}>Dexter Gamayot @ da back</Text>
+                </ScreenHeading>
+            </View>
 
             <View style={styles.bottomNav}>
             <AppNav />
             </View>
-        </View>
+        </AppBackground>
 
         
     );
 }
 
 const styles = StyleSheet.create({
+    heading: { padding: 22 },
     container: {
     flex: 1,
     alignContent: 'center',
@@ -34,3 +39,5 @@ const styles = StyleSheet.create({
     }
 
     })
+import { ScreenHeading } from '../../components/ScreenHeading';
+import { AppBackground } from '../../components/AppBackground';

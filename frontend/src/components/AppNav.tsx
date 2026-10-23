@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { AnimatedPressable } from "./AnimatedPressable";
 
 const tabs = [
-  { label: "Home", icon: "⌂", path: "/" },
+  { label: "Home", icon: "⌂", path: "/dashboard" },
   { label: "Recipes", icon: "▣", path: "/recipes" },
   { label: "Create", icon: "+", path: "/create" },
   { label: "Calendar", icon: "\u25a6", path: "/calendar" },

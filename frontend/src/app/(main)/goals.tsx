@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import { AnimatedPressable } from "../components/AnimatedPressable";
-import { DailyProgress } from "../components/DailyDiary";
-import { AppNav } from "../components/AppNav";
-import { errorMessage, useCalTrack } from "../caltrack/store";
+import { AnimatedPressable } from "../../components/AnimatedPressable";
+import { DailyProgress } from "../../components/DailyDiary";
+import { AppNav } from "../../components/AppNav";
+import { errorMessage, useCalTrack } from "../../caltrack/store";
 
 export default function Goals() {
   const { goal, updateGoal, isSaving } = useCalTrack();
@@ -21,10 +21,12 @@ export default function Goals() {
     }
   };
   return (
-    <View style={styles.screen}>
+<AppBackground style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.eyebrow}>PERSONAL PLAN</Text>
-        <Text style={styles.title}>Your goals</Text>
+        <ScreenHeading>
+          <Text style={styles.eyebrow}>PERSONAL PLAN</Text>
+          <Text style={styles.title}>Your goals</Text>
+        </ScreenHeading>
         <Text style={styles.subtitle}>
           Set a target that fits your current routine.
         </Text>
@@ -64,11 +66,11 @@ export default function Goals() {
         </AnimatedPressable>
       </ScrollView>
       <AppNav />
-    </View>
+  </AppBackground>
   );
 }
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: "#fafafa" },
+  screen: { flex: 1, backgroundColor: "transparent" },
   content: { padding: 22 },
   eyebrow: {
     color: "#00a900",
@@ -106,3 +108,5 @@ const styles = StyleSheet.create({
   },
   saveText: { color: "#fff", fontWeight: "800" },
 });
+import { ScreenHeading } from '../../components/ScreenHeading';
+import { AppBackground } from '../../components/AppBackground';
