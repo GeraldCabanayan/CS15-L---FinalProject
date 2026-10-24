@@ -11,6 +11,8 @@
       "icon": "./src/assets/expo.icon"
     },
     "android": {
+      "package": "com.caltrack.cs15",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./src/assets/images/android-icon-foreground.png",
@@ -20,16 +22,16 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-  "output": "single",
-  "favicon": "./src/assets/images/favicon.png"
-},
+      "output": "single",
+      "favicon": "./src/assets/images/favicon.png"
+    },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
           "backgroundColor": "#ffffff",
-          "image": "./src/assets/images/caltrack-logo.webp",
+          "image": "./src/assets/images/caltrack-logo.png",
           "imageWidth": 280
         }
       ],
@@ -38,6 +40,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "309a2028-ca1b-4927-aba7-71aa7b6f60d7"
+      }
     }
   }
 }
